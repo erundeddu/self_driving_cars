@@ -1,14 +1,14 @@
 <?xml version="1.0"?>
 <launch>
-    <param name="lanes/hough_transform" value="100"/>
-    <param name="lanes/min_line_length" value="40"/>
-    <param name="lanes/max_line_gap" value="5"/>
-    <param name="lanes/lane_rect" value="8"/>
-    <param name="lanes/min_red_threshold" value="300000"/>
-    <param name="lanes/min_yellow_threshold" value="60000"/>
-    <param name="lanes/min_hue_red" value="170"/>  <!--hue wraps around, min is value before 180/0-->
-    <param name="lanes/max_hue_red" value="10"/>
-    <param name="lanes/min_hue_yellow" value="25"/>
-    <param name="lanes/max_hue_yellow" value="40"/>
+    <param name="/lanes/hough_transform" value="100"/>
+    <param name="/lanes/min_line_length" value="40"/>
+    <param name="/lanes/max_line_gap" value="5"/>
+    <param name="/lanes/lane_rect" value="8"/>
+    <param name="/lanes/min_red_threshold" value="300000"/>
+    <param name="/lanes/min_yellow_threshold" value="60000"/>
+    <param name="/lanes/min_hue_red" value="170"/>  <!--hue wraps around, min is value before 180/0-->
+    <param name="/lanes/max_hue_red" value="10"/>
+    <param name="/lanes/min_hue_yellow" value="25"/>
+    <param name="/lanes/max_hue_yellow" value="40"/>
     <node pkg="self_driving" type="lanes" name="lanes" output="screen"/>
 </launch>

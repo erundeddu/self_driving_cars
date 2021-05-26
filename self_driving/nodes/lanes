@@ -2,16 +2,16 @@
 
 """
 PARAMETERS:
-    lanes/hough_threshold (int): minimum voting threshold in Hough space to recognize a line
-    lanes/min_line_length (int): minimum length of a line to be reported
-    lanes/max_line_gap (int): gap between lines to be considered separate
-    lanes/lane_rect (int): half the length in the direction perpendicular to the recognized line to draw a ROI for color detection
-    lanes/min_red_threshold (int): minimum threshold of presence of red pixels to recognize a stop marker
-    lanes/min_yellow_threshold (int): minimum threshold of presence of yellow pixels to recognize a center line
-    lanes/min_hue_red (int): minimum hue value (before 0) for red
-    lanes/max_hue_red (int): maximum hue value (after 0) for red
-    lanes/min_hue_yellow (int): minimum hue value for yellow
-    lanes/max_hue_yellow (int): maximum hue value for yellow
+    /lanes/hough_threshold (int): minimum voting threshold in Hough space to recognize a line
+    /lanes/min_line_length (int): minimum length of a line to be reported
+    /lanes/max_line_gap (int): gap between lines to be considered separate
+    /lanes/lane_rect (int): half the length in the direction perpendicular to the recognized line to draw a ROI for color detection
+    /lanes/min_red_threshold (int): minimum threshold of presence of red pixels to recognize a stop marker
+    /lanes/min_yellow_threshold (int): minimum threshold of presence of yellow pixels to recognize a center line
+    /lanes/min_hue_red (int): minimum hue value (before 0) for red
+    /lanes/max_hue_red (int): maximum hue value (after 0) for red
+    /lanes/min_hue_yellow (int): minimum hue value for yellow
+    /lanes/max_hue_yellow (int): maximum hue value for yellow
 
 PUBLISHES:
     my_lanes/image_raw (sensor_msgs/Image): Image showing the lanes and stop markers recognized
