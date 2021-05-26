@@ -1,5 +1,17 @@
 #!/usr/bin/env python
 
+"""
+PARAMETERS:
+
+PUBLISHES:
+    prius (prius_msgs/Control): throttle, braking, steering and gear to control Prius
+
+SUBSCRIBES:
+
+SERVICES:
+
+"""
+
 import rospy
 import cv2
 import numpy as np

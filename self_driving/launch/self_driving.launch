@@ -1,6 +1,13 @@
 <?xml version="1.0"?>
 <launch>
 	<include file="$(find streets_gazebo)/launch/prius_world.launch"/>
-	<include file="$(find self_driving)/launch/lane_detect.launch"/>
-	<include file="$(find self_driving)/launch/steering.launch"/>
+	<include file="$(find self_driving)/launch/lane_detect.launch"/>	
+    <arg name="follow_lanes" default="true" doc="if true, automatic lane following, else teleop" />
+	
+	<group if="$(arg follow_lanes)">
+		<include file="$(find self_driving)/launch/steering.launch"/>
+	</group>
+    <group unless="$(arg follow_lanes)">
+		<include file="$(find prius_teleop)/launch/prius_teleop.launch"/>
+	</group>
 </launch>
