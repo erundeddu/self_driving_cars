@@ -13,7 +13,7 @@ PUBLISHES:
     prius (prius_msgs/Control): throttle, braking, steering and gear to control Prius
 
 SUBSCRIBES:
-    my_lanes/x_vals (std_msgs/Int32MultiArray): key points of the lanes and stop markers detected
+    my_lanes/vals (std_msgs/Int32MultiArray): key points of the lanes and stop markers detected
 
 SERVICES:
 
@@ -26,30 +26,33 @@ from std_msgs.msg import Int32MultiArray
 
 
 def callback(data):
-    global throttle, brake, steer, gear, pub, stop_acc, after_stop_count, switch, delay_current
-    x_array = []
-    types = []
-    array = data.data
+    # callback to execute when receiving lane values
+    global throttle, brake, steer, gear, stop_acc, after_stop_count, delay_current
+    pts_array = []  # array of points
+    types = []  # array of types
+    array = data.data  # array of [point, type, point, type, point, type...]
 
-    gear = 2
+    gear = 2  # put Prius in drive
     brake = 0
     steer = 0
-    is_braking = False
+    is_braking = False  # if True, Prius is braking
 
+    # preprocess subscribed data
     if array is not None:
         for ii in range(len(array)):
-            if not ii%2:
-                x_array.append(array[ii])
+            if not ii%2:  # split data into pts_array and types
+                pts_array.append(array[ii])
             else:
                 types.append(array[ii])
-    if x_array is not None:
-        line_width = 50
+
+    # 
+    if pts_array is not None:
         x_center_acc = 0
         x_center_num = 0
         found_stop = False
         for ii in range(len(types)):
             if types[ii] == 1:
-                x_center_acc += x_array[ii]
+                x_center_acc += pts_array[ii]
                 x_center_num += 1
             elif types[ii] == 2:
                 stop_acc += 1
@@ -59,14 +62,13 @@ def callback(data):
         except:
             x_center = None
         if not found_stop:
-            if (stop_acc > 5 or after_stop_count > 0):
-                if delay_current > stop_acc - 5:  # parameter stop_acc threshold  # delay depends somehow on speed
+            if (stop_acc > stop_acc_min or after_stop_count > 0):
+                if delay_current > stop_acc - stop_acc_min:  # parameter stop_acc threshold  # delay depends somehow on speed
                     is_braking = True
                     throttle = 0
                     brake = 1
-                    #print("STOP")
                     if after_stop_count == 0:
-                        after_stop_count = 30  # parameter to tune
+                        after_stop_count = after_stop_delay  # parameter to tune
                     else:
                         after_stop_count -= 1
                     stop_acc = 0
@@ -91,14 +93,15 @@ def callback(data):
         msg.steer = steer
         msg.shift_gears = gear
         pub.publish(msg)
-        is_first = False
     
 
 if __name__=="__main__":
     rospy.init_node('steering')
-    rospy.sub =  rospy.Subscriber("/my_lanes/x_vals",Int32MultiArray,callback)
+    rospy.sub =  rospy.Subscriber("/my_lanes/vals",Int32MultiArray,callback)
+
     throttle = rospy.get_param("/steering/throttle", 0.02)
     k = rospy.get_param("/steering/k", 0.01)
+    stop_acc_min = rospy.get_param("/steering/stop_acc_min", 5)
     after_stop_delay = rospy.get_param("/steering/after_stop_delay", 30)
     target_low = rospy.get_param("/steering/target_low", 280)
     target_high = rospy.get_param("/steering/target_high", 300)
@@ -108,10 +111,10 @@ if __name__=="__main__":
     steer = 0
     gear = 3
 
-    # parameters #TODO
-    stop_acc = 0
-    after_stop_count = 0
-    delay_current = 0
+    # global variables
+    stop_acc = 0  # accumulation of consecutive times a red stop marker was seen
+    after_stop_count = 0  # count since braking on
+    delay_current = 0  # count since a red stop marker was not seen anymore
 
     pub = rospy.Publisher('prius', Control, queue_size=2)
     rospy.spin()
