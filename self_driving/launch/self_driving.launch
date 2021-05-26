@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<include>
+    <file="$(find streets_gazebo)/launch/prius_world.launch"/>
+	<file="$(find self_driving)/launch/lane_detect.launch"/>
+	<file="$(find self_driving)/launch/steering.launch"/>
+</include>
