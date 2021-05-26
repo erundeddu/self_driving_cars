@@ -2,11 +2,23 @@
 
 """
 PARAMETERS:
+    lanes/hough_threshold (int): minimum voting threshold in Hough space to recognize a line
+    lanes/min_line_length (int): minimum length of a line to be reported
+    lanes/max_line_gap (int): gap between lines to be considered separate
+    lanes/lane_rect (int): half the length in the direction perpendicular to the recognized line to draw a ROI for color detection
+    lanes/min_red_threshold (int): minimum threshold of presence of red pixels to recognize a stop marker
+    lanes/min_yellow_threshold (int): minimum threshold of presence of yellow pixels to recognize a center line
+    lanes/min_hue_red (int): minimum hue value (before 0) for red
+    lanes/max_hue_red (int): maximum hue value (after 0) for red
+    lanes/min_hue_yellow (int): minimum hue value for yellow
+    lanes/max_hue_yellow (int): maximum hue value for yellow
 
 PUBLISHES:
-    prius (prius_msgs/Control): throttle, braking, steering and gear to control Prius
+    my_lanes/image_raw (sensor_msgs/Image): Image showing the lanes and stop markers recognized
+    my_lanes/x_vals (std_msgs/Int32MultiArray): key points of the lanes and stop markers detected
 
 SUBSCRIBES:
+    prius/front_camera/image_raw (sensor_msgs/Image): Image from the front camera of the Prius
 
 SERVICES:
 
@@ -104,38 +116,10 @@ def average_slope_intercept(image, lines):
         stop_lines_out.append(line)
     return avg_lines_out, stop_lines_out
 
-    
-    """left_fit    = []
-    right_fit   = []
-    if lines is None:
-        return None
-    for line in lines:
-        for x1, y1, x2, y2 in line:
-            fit = np.polyfit((x1,x2), (y1,y2), 1)
-            slope = fit[0]
-            intercept = fit[1]
-            if slope < -0.5: # y is reversed in image
-                left_fit.append((slope, intercept))
-            elif slope > 0.5:
-                right_fit.append((slope, intercept))
-    # add more weight to longer lines
-    averaged_lines = []
-    if left_fit:
-        left_fit_average  = np.average(left_fit, axis=0)
-        left_line = make_points(image, left_fit_average)
-        averaged_lines.append(left_line)
-    if right_fit:
-        right_fit_average = np.average(right_fit, axis=0)
-        right_line = make_points(image, right_fit_average)
-        averaged_lines.append(right_line)
-    return averaged_lines"""
-
 def canny(img):
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     kernel = 5
     blur = cv2.GaussianBlur(img,(kernel, kernel),2)
-    # cv2.imshow("gh",blur)
-    # cv2.waitKey(0)
     canny = cv2.Canny(blur, 50, 150)
     return canny
 
@@ -180,7 +164,6 @@ class image_converter:
 
   def __init__(self):
     self.image_pub = rospy.Publisher("/my_lanes/image_raw",Image,queue_size=10)
-
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber("/prius/front_camera/image_raw",Image,self.callback)
     self.lanes_pub = rospy.Publisher("/my_lanes/x_vals",Int32MultiArray,queue_size=10)
@@ -194,9 +177,7 @@ class image_converter:
     (rows,cols,channels) = cv_image.shape
     canny_image = canny(cv_image)
     cropped_canny = region_of_interest(canny_image)
-    # cv2.imshow("result", cropped_canny)
-    # cv2.waitKey(0)
-    lines = cv2.HoughLinesP(cropped_canny, 2, np.pi/180, 100, np.array([]), minLineLength=40,maxLineGap=5)
+    lines = cv2.HoughLinesP(cropped_canny, 2, np.pi/180, hough_threshold, np.array([]), minLineLength=min_line_length,maxLineGap=max_line_gap)
     if lines is not None:
         averaged_lines, stops = average_slope_intercept(cv_image, lines)
         types = []
@@ -205,7 +186,7 @@ class image_converter:
             width = cv_image.shape[1]
             mask = np.zeros_like(cv_image)
             pts = ln[0]
-            d_rect = 8
+            d_rect = lane_rect
             trapz = np.array([[[
                 (pts[0]-d_rect, pts[1]),
                 (pts[2]-d_rect, pts[3]),
@@ -214,25 +195,23 @@ class image_converter:
             cv2.fillPoly(mask, trapz, [255,255,255])
             masked_image = cv2.bitwise_and(cv_image, mask)
             hsv_frame = cv2.cvtColor(masked_image, cv2.COLOR_BGR2HSV)
-            low_yellow = np.array([26, 150, 64])
-            high_yellow = np.array([40, 255, 255])
+            low_yellow = np.array([min_hue_yellow, 150, 64])
+            high_yellow = np.array([max_hue_yellow, 255, 255])
             yellow_mask = cv2.inRange(hsv_frame, low_yellow, high_yellow)
 
             yellow = cv2.bitwise_and(cv_image, cv_image, mask=yellow_mask)
             num_yellow = np.sum(yellow_mask)
-            min_yellow = 60000
-            if num_yellow > min_yellow:
+            if num_yellow > min_yellow_threshold:
                 types.append(1)
             else:
                 types.append(0)
-        ## attempt at stops
 
         for ln in stops:
             height = cv_image.shape[0]
             width = cv_image.shape[1]
             mask = np.zeros_like(cv_image)
             pts = ln[0]
-            d_rect = 10
+            d_rect = lane_rect
             trapz = np.array([[[
                 (pts[0], max(pts[1]-d_rect,0)),
                 (pts[2], max(pts[1]-d_rect,0)),
@@ -241,26 +220,22 @@ class image_converter:
             cv2.fillPoly(mask, trapz, [255,255,255])
             masked_image = cv2.bitwise_and(cv_image, mask)
             hsv_frame = cv2.cvtColor(masked_image, cv2.COLOR_BGR2HSV)
-            low_red_1 = np.array([170,100,60])
+            low_red_1 = np.array([min_hue_red,100,60])
             high_red_1 = np.array([180,255,255])
             red_mask_1 = cv2.inRange(hsv_frame, low_red_1, high_red_1)
             low_red_2 = np.array([0,100,60])
-            high_red_2 = np.array([10,255,255])
+            high_red_2 = np.array([max_hue_red,255,255])
             red_mask_2 = cv2.inRange(hsv_frame, low_red_2, high_red_2)
 
             red_mask = red_mask_1 | red_mask_2
 
             red = cv2.bitwise_and(cv_image, cv_image, mask=red_mask)
             num_red = np.sum(red_mask)
-            #print(num_red)
-            min_red = 300000
-            if num_red > min_red:
+            if num_red > min_red_threshold:
                 types.append(2)
                 averaged_lines.append(ln)
-        ##
 
         line_image = display_lines(cv_image, averaged_lines, types)
-        #line_image = display_lines(cv_image, lines)
         combo_image = cv2.addWeighted(cv_image, 0.8, line_image, 1, 1)
 
         lane_data = Int32MultiArray()
@@ -282,7 +257,18 @@ class image_converter:
 
 
 if __name__=="__main__":
-
     rospy.init_node('lanes')
+
+    hough_threshold = rospy.get_param("lanes/hough_threshold", 100)
+    min_line_length = rospy.get_param("lanes/min_line_length", 40)
+    max_line_gap = rospy.get_param("lanes/max_line_gap", 5)
+    lane_rect = rospy.get_param("lanes/lane_rect", 8)
+    min_red_threshold = rospy.get_param("lanes/min_red_threshold", 300000)
+    min_yellow_threshold = rospy.get_param("lanes/min_yellow_threshold", 60000)
+    min_hue_red = rospy.get_param("lanes/min_hue_red", 170)
+    max_hue_red = rospy.get_param("lanes/max_hue_red", 10)
+    min_hue_yellow = rospy.get_param("lanes/min_hue_yellow", 25)
+    max_hue_yellow = rospy.get_param("lanes/max_hue_yellow", 40)
+
     ic = image_converter()
     rospy.spin()
