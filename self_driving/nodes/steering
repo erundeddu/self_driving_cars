@@ -19,7 +19,7 @@ def callback(data):
         switch = True
 
     brake = 0
-    k = 0.03
+    k = 0.01
     steer = 0
     is_braking = False
 

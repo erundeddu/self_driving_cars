@@ -1,11 +1,23 @@
 #!/usr/bin/env python
 
+"""
+PARAMETERS:
+
+PUBLISHES:
+    prius (prius_msgs/Control): throttle, braking, steering and gear to control Prius
+
+SUBSCRIBES:
+
+SERVICES:
+
+"""
+
 import rospy
 from prius_msgs.msg import Control
-#from getkey import getkey, keys
 import sys, select, termios, tty
 
 def getKey(key_timeout):
+    # function used to retrieve a key from the terminal
     tty.setraw(sys.stdin.fileno())
     rlist, _, _ = select.select([sys.stdin], [], [], key_timeout)
     if rlist:
@@ -15,55 +27,74 @@ def getKey(key_timeout):
     termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)
     return key
 
+
 if __name__=="__main__":
     settings = termios.tcgetattr(sys.stdin)
 
+    # initial settings 
     throttle = 0
     brake = 0
     steer = 0
     gear = 2
 
+    # key sensitivity (lower value: takes longer to saturate throttle, brake, steer)
     delta = 0.1
+
+    # time period between key samples
+    dt = 0.1
+
     msg = Control()
 
     rospy.init_node('prius_teleop')
     pub = rospy.Publisher('prius', Control, queue_size=2)
-    rate = rospy.Rate(10)
+    print("w: throttle")
+    print("s: brake")
+    print("a: steer left")
+    print("d: steer right")
+    print("r: reverse gear")
+    print("f: forward gear")
+    print("n: neutral gear")
+    print("q: QUIT NODE")
+
     try:
         while not rospy.is_shutdown():
-            c = getKey(0.05)
-            #print(repr(c))
-            if c == 'w':
+            c = getKey(dt)  # collect current key being pressed
+            if c == 'w':  # throttle
                 throttle += delta
                 throttle = min(throttle, 1)
                 brake = 0
-            elif c == 's':
+            elif c == 's':  # brake
                 brake += delta
                 brake = min(brake, 1)
                 throttle = 0
-            elif c == 'd':
+            elif c == 'd':  # steer right
                 steer -= delta
                 steer = max(steer, -1)
-            elif c == 'a':
+            elif c == 'a':  # steer left
                 steer += delta
                 steer = min(steer, 1)
-            elif c == 'r':
+            elif c == 'r':  # reverse gear
                 gear = 3
-            elif c == "f":
+            elif c == "f":  # forward gear
                 gear = 2
-            elif c == 'q':
+            elif c == 'q':  # quit program
                 break
-            elif c == 'n':
+            elif c == 'n':  # neutral gear
                 gear = 1
-            else:
+            else:  # no key pressed
                 throttle = 0
                 brake = 0
-                steer = 0
+                if abs(steer) < delta/10:
+                    steer = 0
+                elif steer > 0:  # gradual decay to forward direction
+                    steer -= delta
+                elif steer < 0:
+                    steer += delta
+
             msg.throttle = throttle
             msg.brake = brake
             msg.steer = steer
             msg.shift_gears = gear
             pub.publish(msg)
-            #rate.sleep()
     finally:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)
