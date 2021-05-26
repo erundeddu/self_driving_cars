@@ -14,9 +14,6 @@ catkin_package(
 
 include_directories(include ${catkin_INCLUDE_DIRS} ${GAZEBO_INCLUDE_DIRS} ${SDFormat_INCLUDE_DIRS})
 
-catkin_install_python(PROGRAMS nodes/prius_teleop
-                      DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-
 catkin_install_python(PROGRAMS nodes/lanes
                       DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
