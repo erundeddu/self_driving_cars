@@ -2,6 +2,12 @@
 
 """
 PARAMETERS:
+    /steering/throttle (double): throttle level on the straights
+    /steering/k (double): proportional steering gain to align car to have center lane on the left
+    /steering/stop_acc_min (int): number of consecutive times a horizontal stop marker has to be identified to be considered
+    /steering/after_stop_delay (int): number of loops that the car is still after braking
+    /steering/target_low (int): lower target threshold for x-coordinate of the upper end of the center lane
+    /steering/target_high (int): upper target threshold for x-coordinate of the upper end of the center lane
 
 PUBLISHES:
     prius (prius_msgs/Control): throttle, braking, steering and gear to control Prius
@@ -25,10 +31,8 @@ def callback(data):
     types = []
     array = data.data
 
-    throttle = 0.02
-
+    gear = 2
     brake = 0
-    k = 0.01
     steer = 0
     is_braking = False
 
@@ -74,8 +78,6 @@ def callback(data):
                 is_braking = False
                 delay_current = 0
         
-        target_low = 280  #TODO define this in terms of the lane on the right
-        target_high = 300
         msg = Control()
         
         if x_center is not None and not is_braking:
@@ -95,12 +97,16 @@ def callback(data):
 if __name__=="__main__":
     rospy.init_node('steering')
     rospy.sub =  rospy.Subscriber("/my_lanes/x_vals",Int32MultiArray,callback)
+    throttle = rospy.get_param("/steering/throttle", 0.02)
+    k = rospy.get_param("/steering/k", 0.01)
+    after_stop_delay = rospy.get_param("/steering/after_stop_delay", 30)
+    target_low = rospy.get_param("/steering/target_low", 280)
+    target_high = rospy.get_param("/steering/target_high", 300)
 
     # initial state of the prius
-    throttle = 0
     brake = 0
     steer = 0
-    gear = 2
+    gear = 3
 
     # parameters #TODO
     stop_acc = 0
