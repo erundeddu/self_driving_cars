@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<launch>
+    <node pkg="prius_teleop" type="prius_teleop" name="prius_teleop" output="screen"/>
+</launch>

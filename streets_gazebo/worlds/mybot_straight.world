@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<sdf version="1.4">
+<world name="myworld">
+	<scene>
+		<shadows>0</shadows>
+	</scene>
+	<include>
+		<uri>model://sun</uri>
+	</include>
+	<include>
+		<uri>model://grass_plane</uri>
+        <color>0 0 0</color>
+	</include>
+
+    <include>
+		<uri>model://road_1</uri>
+        <name>r1</name>
+        <pose>0 0 0 0 0 0</pose>
+	</include>
+    <include>
+		<uri>model://road_1</uri>
+        <name>r2</name>
+        <pose>6 0 0 0 0 0</pose>
+	</include>
+    <include>
+		<uri>model://road_1</uri>
+        <name>r3</name>
+        <pose>12 0 0 0 0 0</pose>
+	</include>
+    <include>
+		<uri>model://road_1</uri>
+        <name>r4</name>
+        <pose>18 0 0 0 0 0</pose>
+	</include>
+    <include>
+		<uri>model://road_2</uri>
+        <name>r5</name>
+        <pose>24 0 0 0 0 0</pose>
+	</include>
+    <include>
+		<uri>model://road_1</uri>
+        <name>r6</name>
+        <pose>30 0 0 0 0 0</pose>
+	</include>
+    <include>
+		<uri>model://road_1</uri>
+        <name>r7</name>
+        <pose>36 0 0 0 0 0</pose>
+	</include>
+    <include>
+		<uri>model://road_1</uri>
+        <name>r8</name>
+        <pose>42 0 0 0 0 0</pose>
+	</include>
+    <include>
+		<uri>model://road_2</uri>
+        <name>r9</name>
+        <pose>48 0 0 0 0 0</pose>
+	</include>
+    <include>
+		<uri>model://road_1</uri>
+        <name>r10</name>
+        <pose>54 0 0 0 0 0</pose>
+	</include>
+
+</world>
+</sdf>

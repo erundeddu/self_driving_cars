@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+
+import rospy
+from prius_msgs.msg import Control
+#from getkey import getkey, keys
+import sys, select, termios, tty
+
+def getKey(key_timeout):
+    tty.setraw(sys.stdin.fileno())
+    rlist, _, _ = select.select([sys.stdin], [], [], key_timeout)
+    if rlist:
+        key = sys.stdin.read(1)
+    else:
+        key = ''
+    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)
+    return key
+
+if __name__=="__main__":
+    settings = termios.tcgetattr(sys.stdin)
+
+    throttle = 0
+    brake = 0
+    steer = 0
+    gear = 2
+
+    delta = 0.1
+    msg = Control()
+
+    rospy.init_node('prius_teleop')
+    pub = rospy.Publisher('prius', Control, queue_size=2)
+    rate = rospy.Rate(10)
+    try:
+        while not rospy.is_shutdown():
+            c = getKey(0.05)
+            #print(repr(c))
+            if c == 'w':
+                throttle += delta
+                throttle = min(throttle, 1)
+                brake = 0
+            elif c == 's':
+                brake += delta
+                brake = min(brake, 1)
+                throttle = 0
+            elif c == 'd':
+                steer -= delta
+                steer = max(steer, -1)
+            elif c == 'a':
+                steer += delta
+                steer = min(steer, 1)
+            elif c == 'r':
+                gear = 3
+            elif c == "f":
+                gear = 2
+            elif c == 'q':
+                break
+            elif c == 'n':
+                gear = 1
+            else:
+                throttle = 0
+                brake = 0
+                steer = 0
+            msg.throttle = throttle
+            msg.brake = brake
+            msg.steer = steer
+            msg.shift_gears = gear
+            pub.publish(msg)
+            #rate.sleep()
+    finally:
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)

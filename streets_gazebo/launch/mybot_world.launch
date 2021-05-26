@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<launch>
+	<!-- urdf xml robot description loaded on the Parameter Server, converting the xacro into a proper urdf file-->
+	<param name="robot_description" textfile="$(find prius_description)/urdf/prius.urdf"/>
+    <!--arg name="rvizconfig" default="$(find car_demo)/rviz/demo.rviz" /-->
+
+    <!--send urdf to param server -->
+	
+	<include file="$(find gazebo_ros)/launch/empty_world.launch">
+		<arg name="world_name" value="$(find streets_gazebo)/worlds/mybot.world"/>
+		<arg name="verbose" value="true"/>
+		<arg name="gui" value="true"/>
+	</include>
+	
+	<!-- push robot_description to factory and spawn robot in gazebo -->
+	<node name="prius_spawn" pkg="gazebo_ros" type="spawn_model" output="screen" args="-urdf -param robot_description -model prius">
+    </node>
+	
+	
+	<node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" >
+    <!-- <remap from="robot_description" to="different_robot_description" /> 
+    	<remap from="joint_states" to="/prius/joint_states" />-->
+	</node>
+
+    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+        <param name="use_gui" value="false"/>
+    </node>
+
+    <!--include file="$(find mybot_control)/launch/mybot_control.launch"-->
+
+	<!--node pkg="fake_localization" type="fake_localization" name="fake_localization"-->
+	<!-- <remap from="base_pose_ground_truth" to="/prius/base_pose_ground_truth"/> -->
+	<!--node pkg="tf2_ros" type="static_transform_publisher" name="very_inaccurate_odom" args="0 0 0 0 0 0 odom base_link"/-->
+	<!--node pkg="car_demo" type="joystick_translator" name="joystick_translator"/-->
+    <!--node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" /-->
+
+</launch>

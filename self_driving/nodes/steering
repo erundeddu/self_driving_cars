@@ -1,0 +1,99 @@
+#!/usr/bin/env python
+
+import rospy
+import numpy as np
+from prius_msgs.msg import Control
+from std_msgs.msg import Int32MultiArray
+
+def callback(data):
+    global throttle, brake, steer, gear, pub, stop_acc, after_stop_count, switch, delay_current
+    x_array = []
+    types = []
+    array = data.data
+
+    if switch:  # replace with velocity sensor
+        throttle = 0.02
+        switch = False
+    else:
+        throttle = 0.02
+        switch = True
+
+    brake = 0
+    k = 0.03
+    steer = 0
+    is_braking = False
+
+    if array is not None:
+        for ii in range(len(array)):
+            if not ii%2:
+                x_array.append(array[ii])
+            else:
+                types.append(array[ii])
+    if x_array is not None:
+        line_width = 50
+        x_center_acc = 0
+        x_center_num = 0
+        found_stop = False
+        for ii in range(len(types)):
+            if types[ii] == 1:
+                x_center_acc += x_array[ii]
+                x_center_num += 1
+            elif types[ii] == 2:
+                stop_acc += 1
+                found_stop = True
+        try:
+            x_center = x_center_acc/x_center_num
+        except:
+            x_center = None
+        if not found_stop:
+            if (stop_acc > 5 or after_stop_count > 0):
+                if delay_current > stop_acc - 5:  # parameter stop_acc threshold  # delay depends somehow on speed
+                    is_braking = True
+                    throttle = 0
+                    brake = 1
+                    #print("STOP")
+                    if after_stop_count == 0:
+                        after_stop_count = 30  # parameter to tune
+                    else:
+                        after_stop_count -= 1
+                    stop_acc = 0
+                else:
+                    delay_current += 1
+                    is_braking = False
+            else:
+                stop_acc = 0
+                is_braking = False
+                delay_current = 0
+        
+        target_low = 280  #TODO define this in terms of the lane on the right
+        target_high = 300
+        msg = Control()
+        
+        if x_center is not None and not is_braking:
+            if x_center < target_low:
+                steer = min(k*abs(x_center-target_low),1)
+            elif x_center > target_high:
+                steer = -min(k*abs(x_center-target_high),1)
+
+        msg.throttle = throttle
+        msg.brake = brake
+        msg.steer = steer
+        msg.shift_gears = gear
+        pub.publish(msg)
+        is_first = False
+    
+
+if __name__=="__main__":
+    rospy.init_node('steering')
+    rospy.sub =  rospy.Subscriber("/my_lanes/x_vals",Int32MultiArray,callback)
+    #rate = rospy.Rate(10)
+    throttle = 0
+    brake = 0
+    steer = 0
+    gear = 2
+    stop_acc = 0
+    after_stop_count = 0
+    switch = True
+    delay_current = 0
+    pub = rospy.Publisher('prius', Control, queue_size=2)
+    rospy.spin()
