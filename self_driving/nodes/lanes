@@ -102,6 +102,7 @@ def region_of_interest(img):
 
 
 def average_slope_intercept(image, lines):
+    # TODO: comment this function
     candidate_stop_lines = []
     filtered_lines = []
     for line in lines:
@@ -197,10 +198,10 @@ def determine_line_type(img, ln, trapz_type, color_low_1, color_high_1, color_th
     elif trapz_type == 1:
         # for horizontal lines
         trapz = np.array([[[
-            (pts[0], max(pts[1]-d_rect,0)),
-            (pts[2], max(pts[1]-d_rect,0)),
-            (pts[2], min(pts[3]+d_rect,height)),
-            (pts[0], min(pts[3]+d_rect,height)),]]], np.int32)
+            (pts[0], max(pts[1]-lane_rect,0)),
+            (pts[2], max(pts[1]-lane_rect,0)),
+            (pts[2], min(pts[3]+lane_rect,height)),
+            (pts[0], min(pts[3]+lane_rect,height)),]]], np.int32)
     cv2.fillPoly(mask, trapz, [255,255,255])
     masked_image = cv2.bitwise_and(img, mask)  # get region of interest around line
     hsv_frame = cv2.cvtColor(masked_image, cv2.COLOR_BGR2HSV)  # convert ROI to HSV for color detection
@@ -210,7 +211,7 @@ def determine_line_type(img, ln, trapz_type, color_low_1, color_high_1, color_th
         color_mask = color_mask_1 | color_mask_2
     else:
         color_mask = color_mask_1
-    color = cv2.bitwise_and(cv_image, cv_image, mask=color_mask)  # filter out desired color
+    color = cv2.bitwise_and(img, img, mask=color_mask)  # filter out desired color
     num_color = np.sum(color_mask)  # sum the number of pixels with the desired color
     if num_color > color_threshold:  # compare to threshold
         return True  # true: the line is in the color range desired
@@ -237,7 +238,7 @@ def callback(data):
             else:
                 types.append(0)
         for ln in stops:  # for horizontal lines, find the stop markers
-            if determine_line_type(cv_image, ln, 1, low_red_1, high_red_1, min_red_threshold, low_red_2, high_red_2:
+            if determine_line_type(cv_image, ln, 1, low_red_1, high_red_1, min_red_threshold, low_red_2, high_red_2):
                 types.append(2)
                 averaged_lines.append(ln)
         line_image = display_lines(cv_image, averaged_lines, types)

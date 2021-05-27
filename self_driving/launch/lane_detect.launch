@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <launch>
+    <arg name="display_processed_image" default="true" doc="if true, the processed image is displayed"/>
     <param name="/lanes/hough_transform" value="100"/>
     <param name="/lanes/min_line_length" value="40"/>
     <param name="/lanes/max_line_gap" value="5"/>
@@ -11,4 +12,9 @@
     <param name="/lanes/min_hue_yellow" value="25"/>
     <param name="/lanes/max_hue_yellow" value="40"/>
     <node pkg="self_driving" type="lanes" name="lanes"/>
+    <group if="$(arg display_processed_image)">
+		<node name="image_view" pkg="image_view" type="image_view">
+            <remap from="image" to="my_lanes/image_raw"/>
+        </node>
+	</group>
 </launch>
