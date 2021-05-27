@@ -11,7 +11,6 @@
 	</scene>
 	<include>
 		<uri>model://sun</uri>
-        <diffuse>100 100 100 255</diffuse>
 	</include>
 	<include>
 		<uri>model://grass_plane</uri>
