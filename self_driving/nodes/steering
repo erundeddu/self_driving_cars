@@ -115,7 +115,7 @@ def callback(data):
             in_intersection = False
             started_turning = False
 
-        if in_intersection:
+        if in_intersection and not is_braking:
             throttle = 0
             if intersection_center is not None:
                 if intersection_center > 530:  #TODO # parameter to be calibrated

@@ -5,6 +5,6 @@
     <param name="steering/stop_acc_min" value="3"/>
     <param name="steering/target_low" value="270"/>
     <param name="steering/target_high" value="300"/>
-    <param name="steering/after_stop_delay" value="60"/>
+    <param name="steering/after_stop_delay" value="40"/>
     <node pkg="self_driving" type="steering" name="steering" output="screen"/>
 </launch>
