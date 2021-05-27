@@ -16,18 +16,23 @@ SUBSCRIBES:
     my_lanes/vals (std_msgs/Int32MultiArray): key points of the lanes and stop markers detected
 
 SERVICES:
-
+    enable_driving (self_driving/enable_driving): 0 holds the car in brake, 1 drives autonomously
 """
 
 import rospy
 import numpy as np
 from prius_msgs.msg import Control
+from self_driving.srv import enable_driving
 from std_msgs.msg import Int32MultiArray
 
+def service_callback(req):
+    global driving_ctrl
+    driving_ctrl = req.ctrl
+    return []
 
 def callback(data):
     # callback to execute when receiving lane values
-    global throttle, brake, steer, gear, stop_acc, after_stop_count, delay_current
+    global throttle, brake, steer, gear, stop_acc, after_stop_count, delay_current, iteration
     pts_array = []  # array of points
     types = []  # array of types
     array = data.data  # array of [point, type, point, type, point, type...]
@@ -35,6 +40,12 @@ def callback(data):
     gear = 2  # put Prius in drive
     brake = 0
     steer = 0
+    if iteration < 4:  # initial throttle to start car
+        throttle = 0.01
+    else:
+        throttle = 0
+        if not iteration % 5:  # brake every 5 iterations to not gain excessive speed
+            brake = 0.1
     is_braking = False  # if True, Prius is braking
 
     # preprocess subscribed data
@@ -93,19 +104,27 @@ def callback(data):
             elif x_center > target_high:  # if car is to the right of the target, turn left
                 steer = -min(k*abs(x_center-target_high),1)
 
+        if driving_ctrl == 0:
+            throttle = 0
+            brake = 1
+            steer = 0
+            iteration = 0
+
         # assemble message and publish commands to Prius
         msg.throttle = throttle
         msg.brake = brake
         msg.steer = steer
         msg.shift_gears = gear
         pub.publish(msg)
+    iteration += 1
     
 
 if __name__=="__main__":
     rospy.init_node('steering')
     rospy.sub =  rospy.Subscriber("/my_lanes/vals",Int32MultiArray,callback)
+    s = rospy.Service('enable_driving', enable_driving, service_callback)
 
-    throttle = rospy.get_param("/steering/throttle", 0.02)
+    # throttle = rospy.get_param("/steering/throttle", 0.02)
     k = rospy.get_param("/steering/k", 0.01)
     stop_acc_min = rospy.get_param("/steering/stop_acc_min", 5)
     after_stop_delay = rospy.get_param("/steering/after_stop_delay", 30)
@@ -118,9 +137,11 @@ if __name__=="__main__":
     gear = 3
 
     # global variables
+    driving_ctrl = 0  # 0 = brake; 1 = self driving
     stop_acc = 0  # accumulation of consecutive times a red stop marker was seen
     after_stop_count = 0  # count since braking on
     delay_current = 0  # count since a red stop marker was not seen anymore
+    iteration = 0  # need to activate throttle initially
 
     pub = rospy.Publisher('prius', Control, queue_size=2)
     rospy.spin()

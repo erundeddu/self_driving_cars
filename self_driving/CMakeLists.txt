@@ -3,12 +3,24 @@ project(self_driving)
 
 find_package(catkin REQUIRED COMPONENTS
   prius_msgs
+  message_generation 
+)
+
+add_service_files(
+   FILES
+   enable_driving.srv
+)
+
+## Generate added messages and services with any dependencies listed here
+generate_messages(
+  DEPENDENCIES
+  #std_msgs  # Or other packages containing msgs
 )
 
 catkin_package(
  # INCLUDE_DIRS include
  # LIBRARIES gazebo_radar_plugin
- CATKIN_DEPENDS prius_msgs
+ CATKIN_DEPENDS prius_msgs message_generation message_runtime
 #  DEPENDS system_lib
 )
 

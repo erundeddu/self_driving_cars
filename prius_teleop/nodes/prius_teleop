@@ -32,7 +32,7 @@ def getKey(key_timeout):
 if __name__=="__main__":
     settings = termios.tcgetattr(sys.stdin)
     rospy.init_node('prius_teleop')
-    pub = rospy.Publisher('prius', Control, queue_size=2)
+    pub = rospy.Publisher('prius', Control, queue_size=1)
 
     # initial settings 
     throttle = 0
@@ -44,7 +44,7 @@ if __name__=="__main__":
     key_sensitivity = rospy.get_param("/key_sensitivity", 0.1)
 
     # time period between key samples
-    dt = 0.1
+    dt = 0.05
 
     msg = Control()
 

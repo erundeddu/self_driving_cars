@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
 <launch>
-    <param name="/key_sensitivity" value="0.1"/>
+    <param name="/key_sensitivity" value="0.2"/>
     <node pkg="prius_teleop" type="prius_teleop" name="prius_teleop" output="screen"/>
 </launch>
