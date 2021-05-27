@@ -94,8 +94,8 @@ def region_of_interest(img):
     # this region of interest was fine tuned so that it discards bottom parts of the image that come from the front of the car and top parts of the image that are not relevant
     trapz = np.array([[ 
     (0, 109*height//160),
-    (0, 9*height//20),
-    (800, 9* height//20),
+    (0, 9.5*height//20),
+    (800, 9.5* height//20),
     (800, 109*height//160),]], np.int32)
     #
     cv2.fillPoly(mask, trapz, 255)
@@ -288,9 +288,9 @@ if __name__=="__main__":
 
     low_yellow = np.array([min_hue_yellow, 150, 64])
     high_yellow = np.array([max_hue_yellow, 255, 255])
-    low_red_1 = np.array([min_hue_red,100,60])
+    low_red_1 = np.array([min_hue_red,220,60])
     high_red_1 = np.array([180,255,255])
-    low_red_2 = np.array([0,100,60])
+    low_red_2 = np.array([0,220,60])
     high_red_2 = np.array([max_hue_red,255,255])
 
     rospy.spin()

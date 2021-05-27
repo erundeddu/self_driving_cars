@@ -32,7 +32,7 @@ def service_callback(req):
 
 def callback(data):
     # callback to execute when receiving lane values
-    global throttle, brake, steer, gear, stop_acc, after_stop_count, delay_current, iteration, in_intersection, started_turning
+    global throttle, brake, steer, gear, stop_acc, after_stop_count, delay_current, iteration, in_intersection, started_turning, center_line_acc
     pts_array = []  # array of points
     types = []  # array of types
     array = data.data  # array of [point, type, point, type, point, type...]
@@ -112,8 +112,12 @@ def callback(data):
                 steer = min(k*abs(x_center-target_low),1)
             elif x_center > target_high:  # if car is to the left of the target, steer right
                 steer = -min(k*abs(x_center-target_high),1)
-            in_intersection = False
-            started_turning = False
+            center_line_acc += 1
+            if center_line_acc > 3:
+                in_intersection = False
+                started_turning = False
+        elif x_center is None:
+            center_line_acc = 0
 
         if in_intersection and not is_braking:
             throttle = 0
@@ -164,6 +168,7 @@ if __name__=="__main__":
     iteration = 0  # need to activate throttle initially
     in_intersection = False  # True if car is in the intersection
     started_turning = False
+    center_line_acc = 0
 
     pub = rospy.Publisher('prius', Control, queue_size=2)
     rospy.spin()
