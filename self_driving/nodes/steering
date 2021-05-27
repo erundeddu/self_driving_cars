@@ -112,7 +112,7 @@ def callback(data):
             elif x_center > target_high:  # if car is to the left of the target, steer right
                 steer = -min(k*abs(x_center-target_high),1)
             center_line_acc += 1
-            if center_line_acc > 3:
+            if center_line_acc > 5:
                 in_intersection = False
                 started_turning = False
         elif x_center is None:
