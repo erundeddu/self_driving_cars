@@ -24,6 +24,8 @@ SERVICES:
 
 """
 
+# the initial structure for this file references https://github.com/rslim087a/Self-Driving-Car-Course-Codes
+
 import rospy
 import cv2
 import numpy as np
@@ -31,19 +33,73 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import Int32MultiArray
 from cv_bridge import CvBridge, CvBridgeError
 
+
 def make_points(image, line):
+    # image: opencv image
+    # line: a slope, intercept tuple
+    # returns coordinates of start and end points of the line, using different methods depending on the slope of the line
     slope, intercept = line
-    if abs(slope) > 0.2: 
+    if abs(slope) > 0.2:  # lines that are more vertical fix y coords and find x coords
         y1 = int(image.shape[0])  # bottom of the image
         y2 = int(y1*3/5)         # slightly lower than the middle
         x1 = int((y1 - intercept)/slope)
         x2 = int((y2 - intercept)/slope)
-    else:
-        x1 = 0
-        x2 = image.shape[1]
+    else:  # lines that are more horizontal fix x coords and find y coords
+        x1 = 0  # left of the image
+        x2 = image.shape[1]  # right of the image
         y1 = int(x1*slope + intercept)
         y2 = int(x2*slope + intercept)
     return [[x1, y1, x2, y2]]
+
+
+def canny(img):
+    # img: opencv image
+    # returns the edges extracted from img using canny edge detector
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)  # convert image to grayscale
+    kernel = 5  # size of filter for gaussian blur
+    blur = cv2.GaussianBlur(img,(kernel, kernel),2)  # blur image to avoid finding edges due to noise
+    canny = cv2.Canny(blur, 50, 150)  # canny edge detection step
+    return canny
+
+
+def display_lines(img,lines,types):
+    # img: opencv image
+    # lines: a list of lists, where each sublist contains end x and y coordinates to plot a line
+    # types: a list of integers of same length as lines, where each entry denotes the type of the corresponding line (a center line, a side line, a stop marker)
+    # returns an image of the same size as img that plots the lines in different colors depending on their types
+    line_image = np.zeros_like(img)
+    count = 0
+    if lines is not None:
+        for line in lines:
+            for x1, y1, x2, y2 in line:
+                if types[count] == 1:  # 1 is center line, shown in yellow
+                    cv2.line(line_image,(x1,y1),(x2,y2),(0,255,255),10)
+                elif types[count] == 2:  # 2 is stop marker, shown in red
+                    cv2.line(line_image,(x1,y1),(x2,y2),(0,0,255),10)
+                else:  # side line, show in blue
+                    cv2.line(line_image,(x1,y1),(x2,y2),(255,0,0),10)
+            count += 1
+    return line_image
+
+
+def region_of_interest(img):
+    # img: an opencv image
+    # returns a version of img where all pixels outside of the region of interest are set to 0
+    # region of interest is hardcoded in this function
+    height = img.shape[0]
+    width = img.shape[1]
+    mask = np.zeros_like(img)
+    # this region of interest was fine tuned so that it discards bottom parts of the image that come from the front of the car and top parts of the image that are not relevant
+    trapz = np.array([[ 
+    (0, 109*height//160),
+    (0, 9*height//20),
+    (800, 9* height//20),
+    (800, 109*height//160),]], np.int32)
+    #
+    cv2.fillPoly(mask, trapz, 255)
+    masked_image = cv2.bitwise_and(img, mask)
+    return masked_image
+
 
 def average_slope_intercept(image, lines):
     candidate_stop_lines = []
@@ -116,64 +172,58 @@ def average_slope_intercept(image, lines):
         stop_lines_out.append(line)
     return avg_lines_out, stop_lines_out
 
-def canny(img):
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    kernel = 5
-    blur = cv2.GaussianBlur(img,(kernel, kernel),2)
-    canny = cv2.Canny(blur, 50, 150)
-    return canny
 
-def display_lines(img,lines,types):
-    line_image = np.zeros_like(img)
-    count = 0
-    if lines is not None:
-        for line in lines:
-            for x1, y1, x2, y2 in line:
-                if types[count] == 1:
-                    cv2.line(line_image,(x1,y1),(x2,y2),(0,255,255),10)
-                elif types[count] == 2:
-                    cv2.line(line_image,(x1,y1),(x2,y2),(0,0,255),10)
-                else:
-                    cv2.line(line_image,(x1,y1),(x2,y2),(255,0,0),10)
-            count += 1
-    return line_image
+def determine_line_type(img, ln, trapz_type, color_low_1, color_high_1, color_threshold, color_low_2=None, color_high_2=None):
+    # img: an opencv image
+    # ln: a line defined by [[x1, y1, x2, y2]] end points
+    # trapz_type: a switch to use different ROI around the line depending on whether the line is more vertical or horizontal
+    # color_low_1: [H, S, V] lower limit 1
+    # color_high_1: [H, S, V] upper limit 1
+    # color_threshold: if there are more pixels in the desired color range than this number, return True
+    # color_low_2: [H, S, V] lower limit 2 (to be used if H is wrapping around 0)
+    # color_high_2: [H, S, V] upper limit 2 (to be used if H is wrapping around 0)
+    # return True if line is made up of enough pixels in the color ranges provided, False otherwise
+    height = img.shape[0]
+    width = img.shape[1]
+    mask = np.zeros_like(img)
+    pts = ln[0]
+    if trapz_type == 0:
+        # for vertical lines
+        trapz = np.array([[[
+            (pts[0]-lane_rect, pts[1]),
+            (pts[2]-lane_rect, pts[3]),
+            (pts[2]+lane_rect, pts[3]),
+            (pts[0]+lane_rect, pts[1]),]]], np.int32)
+    elif trapz_type == 1:
+        # for horizontal lines
+        trapz = np.array([[[
+            (pts[0], max(pts[1]-d_rect,0)),
+            (pts[2], max(pts[1]-d_rect,0)),
+            (pts[2], min(pts[3]+d_rect,height)),
+            (pts[0], min(pts[3]+d_rect,height)),]]], np.int32)
+    cv2.fillPoly(mask, trapz, [255,255,255])
+    masked_image = cv2.bitwise_and(img, mask)  # get region of interest around line
+    hsv_frame = cv2.cvtColor(masked_image, cv2.COLOR_BGR2HSV)  # convert ROI to HSV for color detection
+    color_mask_1 = cv2.inRange(hsv_frame, color_low_1, color_high_1)  # color mask 1 (two are provided in case hue wraps around 0)
+    if color_low_2 is not None and color_high_2 is not None:
+        color_mask_2 = cv2.inRange(hsv_frame, color_low_2, color_high_2)
+        color_mask = color_mask_1 | color_mask_2
+    else:
+        color_mask = color_mask_1
+    color = cv2.bitwise_and(cv_image, cv_image, mask=color_mask)  # filter out desired color
+    num_color = np.sum(color_mask)  # sum the number of pixels with the desired color
+    if num_color > color_threshold:  # compare to threshold
+        return True  # true: the line is in the color range desired
+    else:
+        return False
 
-def region_of_interest(canny):
-    height = canny.shape[0]
-    width = canny.shape[1]
-    mask = np.zeros_like(canny)
 
-    trapz = np.array([[
-    (100, 109*height//160),
-    (200, 11*height//20),
-    (600, 11 * height//20),
-    (700, 109*height//160),]], np.int32)
-
-    trapz = np.array([[
-    (0, 109*height//160),
-    (0, 9*height//20),
-    (800, 9* height//20),
-    (800, 109*height//160),]], np.int32)
-
-    cv2.fillPoly(mask, trapz, 255)
-    masked_image = cv2.bitwise_and(canny, mask)
-    return masked_image
-
-
-class image_converter:
-
-  def __init__(self):
-    self.image_pub = rospy.Publisher("/my_lanes/image_raw",Image,queue_size=10)
-    self.bridge = CvBridge()
-    self.image_sub = rospy.Subscriber("/prius/front_camera/image_raw",Image,self.callback)
-    self.lanes_pub = rospy.Publisher("/my_lanes/vals",Int32MultiArray,queue_size=10)
-
-  def callback(self,data):
+def callback(data):
+    # process incoming image, find and publish lines
     try:
-      cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        cv_image = bridge.imgmsg_to_cv2(data, "bgr8")
     except CvBridgeError as e:
-      print(e)
-
+        print(e)
     (rows,cols,channels) = cv_image.shape
     canny_image = canny(cv_image)
     cropped_canny = region_of_interest(canny_image)
@@ -181,83 +231,41 @@ class image_converter:
     if lines is not None:
         averaged_lines, stops = average_slope_intercept(cv_image, lines)
         types = []
-        for ln in averaged_lines:
-            height = cv_image.shape[0]
-            width = cv_image.shape[1]
-            mask = np.zeros_like(cv_image)
-            pts = ln[0]
-            d_rect = lane_rect
-            trapz = np.array([[[
-                (pts[0]-d_rect, pts[1]),
-                (pts[2]-d_rect, pts[3]),
-                (pts[2]+d_rect, pts[3]),
-                (pts[0]+d_rect, pts[1]),]]], np.int32)
-            cv2.fillPoly(mask, trapz, [255,255,255])
-            masked_image = cv2.bitwise_and(cv_image, mask)
-            hsv_frame = cv2.cvtColor(masked_image, cv2.COLOR_BGR2HSV)
-            low_yellow = np.array([min_hue_yellow, 150, 64])
-            high_yellow = np.array([max_hue_yellow, 255, 255])
-            yellow_mask = cv2.inRange(hsv_frame, low_yellow, high_yellow)
-
-            yellow = cv2.bitwise_and(cv_image, cv_image, mask=yellow_mask)
-            num_yellow = np.sum(yellow_mask)
-            if num_yellow > min_yellow_threshold:
+        for ln in averaged_lines:  # for vertical lines, divide between central (yellow) and side lines
+            if determine_line_type(cv_image, ln, 0, low_yellow, high_yellow, min_yellow_threshold):
                 types.append(1)
             else:
                 types.append(0)
-
-        for ln in stops:
-            height = cv_image.shape[0]
-            width = cv_image.shape[1]
-            mask = np.zeros_like(cv_image)
-            pts = ln[0]
-            d_rect = lane_rect
-            trapz = np.array([[[
-                (pts[0], max(pts[1]-d_rect,0)),
-                (pts[2], max(pts[1]-d_rect,0)),
-                (pts[2], min(pts[3]+d_rect,height)),
-                (pts[0], min(pts[3]+d_rect,height)),]]], np.int32)
-            cv2.fillPoly(mask, trapz, [255,255,255])
-            masked_image = cv2.bitwise_and(cv_image, mask)
-            hsv_frame = cv2.cvtColor(masked_image, cv2.COLOR_BGR2HSV)
-            low_red_1 = np.array([min_hue_red,100,60])
-            high_red_1 = np.array([180,255,255])
-            red_mask_1 = cv2.inRange(hsv_frame, low_red_1, high_red_1)
-            low_red_2 = np.array([0,100,60])
-            high_red_2 = np.array([max_hue_red,255,255])
-            red_mask_2 = cv2.inRange(hsv_frame, low_red_2, high_red_2)
-
-            red_mask = red_mask_1 | red_mask_2
-
-            red = cv2.bitwise_and(cv_image, cv_image, mask=red_mask)
-            num_red = np.sum(red_mask)
-            if num_red > min_red_threshold:
+        for ln in stops:  # for horizontal lines, find the stop markers
+            if determine_line_type(cv_image, ln, 1, low_red_1, high_red_1, min_red_threshold, low_red_2, high_red_2:
                 types.append(2)
                 averaged_lines.append(ln)
-
         line_image = display_lines(cv_image, averaged_lines, types)
-        combo_image = cv2.addWeighted(cv_image, 0.8, line_image, 1, 1)
-
+        combined_image = cv2.addWeighted(cv_image, 0.8, line_image, 1, 1)
         lane_data = Int32MultiArray()
         lane_data_array = []
         for ii in range(len(types)):
-            if types[ii] != 2:
+            if types[ii] != 2:  # for stop markers, append y coord
                 lane_data_array.append(averaged_lines[ii][0][2])
-            else:
+            else:  # for other lines, append top x coord
                 lane_data_array.append(averaged_lines[ii][0][1])
-            lane_data_array.append(types[ii])
+            lane_data_array.append(types[ii])  # after the coord, append the type of the line
         lane_data.data = lane_data_array
-        self.lanes_pub.publish(lane_data)
-    else:
-        combo_image = cv_image
+        lanes_pub.publish(lane_data)
+    else:  # if no lines detected
+        combined_image = cv_image
     try:
-      self.image_pub.publish(self.bridge.cv2_to_imgmsg(combo_image, "bgr8"))  #bgr8
+        image_pub.publish(bridge.cv2_to_imgmsg(combined_image, "bgr8"))  # convert to ros image and publish
     except CvBridgeError as e:
-      print(e)
+        print(e)
 
 
 if __name__=="__main__":
     rospy.init_node('lanes')
+    image_pub = rospy.Publisher("/my_lanes/image_raw",Image,queue_size=2)
+    bridge = CvBridge()  # used to convert ROS images to opencv images and vice versa
+    image_sub = rospy.Subscriber("/prius/front_camera/image_raw",Image,callback)
+    lanes_pub = rospy.Publisher("/my_lanes/vals",Int32MultiArray,queue_size=2)
 
     hough_threshold = rospy.get_param("lanes/hough_threshold", 100)
     min_line_length = rospy.get_param("lanes/min_line_length", 40)
@@ -270,5 +278,11 @@ if __name__=="__main__":
     min_hue_yellow = rospy.get_param("lanes/min_hue_yellow", 25)
     max_hue_yellow = rospy.get_param("lanes/max_hue_yellow", 40)
 
-    ic = image_converter()
+    low_yellow = np.array([min_hue_yellow, 150, 64])
+    high_yellow = np.array([max_hue_yellow, 255, 255])
+    low_red_1 = np.array([min_hue_red,100,60])
+    high_red_1 = np.array([180,255,255])
+    low_red_2 = np.array([0,100,60])
+    high_red_2 = np.array([max_hue_red,255,255])
+
     rospy.spin()
