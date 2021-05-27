@@ -10,5 +10,5 @@
     <param name="/lanes/max_hue_red" value="10"/>
     <param name="/lanes/min_hue_yellow" value="25"/>
     <param name="/lanes/max_hue_yellow" value="40"/>
-    <node pkg="self_driving" type="lanes" name="lanes" output="screen"/>
+    <node pkg="self_driving" type="lanes" name="lanes"/>
 </launch>

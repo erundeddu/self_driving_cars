@@ -13,7 +13,7 @@
 	</include>
 	
 	<!-- push robot_description to factory and spawn robot in gazebo -->
-	<node name="prius_spawn" pkg="gazebo_ros" type="spawn_model" output="screen" args="-urdf -param robot_description -model prius">
+	<node name="prius_spawn" pkg="gazebo_ros" type="spawn_model" args="-urdf -param robot_description -model prius">
     </node>
 	
 	

@@ -33,7 +33,7 @@ from cv_bridge import CvBridge, CvBridgeError
 
 def make_points(image, line):
     slope, intercept = line
-    if abs(slope) > 0.2:
+    if abs(slope) > 0.2: 
         y1 = int(image.shape[0])  # bottom of the image
         y2 = int(y1*3/5)         # slightly lower than the middle
         x1 = int((y1 - intercept)/slope)
