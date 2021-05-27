@@ -103,18 +103,20 @@ def region_of_interest(img):
 
 def average_slope_intercept(image, lines):
     # TODO: comment this function
-    candidate_stop_lines = []
-    filtered_lines = []
+    candidate_stop_lines = []  # a list of approximately horizontal lines (slope, intercept), some of which may correspond to the stop markers
+    filtered_lines = []  # a list of more vertical lines (slope, intercept) that correspond to the center and side lane-divider lines
+    # divide all lines between the two lists above depending on their slope
     for line in lines:
         for x1, y1, x2, y2 in line:
             fit = np.polyfit((x1,x2), (y1,y2), 1)
             slope = fit[0]
             intercept = fit[1]
-            if 0.7 < abs(slope):
+            if abs(slope) > 0.7:  # more vertical line
                 filtered_lines.append((slope, intercept))
-            elif abs(slope) < 0.2:
+            elif abs(slope) < 0.2:  # more horizontal line
                 candidate_stop_lines.append((slope, intercept))
     avg_lines = []
+    # parameters
     d_slope = 15*3.14159/180
     d_inter = 100
     d_x = 10
@@ -122,7 +124,7 @@ def average_slope_intercept(image, lines):
         did_append = False
         for sub_list in avg_lines:
             for compare_line in sub_list:
-                y = int((image.shape[0])*3/5)         # slightly lower than the middle
+                y = int((image.shape[0])*3/5)
                 slope_cp = compare_line[0]
                 intercept_cp = compare_line[1]
                 slope_ln = line[0]
