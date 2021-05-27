@@ -36,6 +36,7 @@ def callback(data):
     pts_array = []  # array of points
     types = []  # array of types
     array = data.data  # array of [point, type, point, type, point, type...]
+    intersection_center = 
 
     gear = 2  # put Prius in drive
     brake = 0
@@ -67,6 +68,11 @@ def callback(data):
             elif types[ii] == 2:  # types = 2: stop marker
                 stop_acc += 1  # increase accumulator for consecutive stop markers seen
                 found_stop = True  # a stop was found
+            elif types[ii] == 3:  # types = 3: center line seen horizontally
+                if intersection_center is not None:
+                    intersection_center = max(pts_array[ii], intersection_center)  # keep closest intersection center line in case mutliple are detected
+                else:
+                    intersection_center = pts_array[ii]
 
         try:  # average all center lines data found, try/except used in case of dividing by zero
             x_center = x_center_acc/x_center_num
@@ -82,8 +88,10 @@ def callback(data):
                     brake = 1
                     if after_stop_count == 0:  # first consecutive loop of braking mode: set count during which car is in braking
                         after_stop_count = after_stop_delay
+                        in_intersection = True
                     else:  # other loops of braking mode: keep lowering count 
                         after_stop_count -= 1
+                        in_intersection = True
                     stop_acc = 0
                 else:  # keep delaying braking
                     delay_current += 1
@@ -103,6 +111,14 @@ def callback(data):
                 steer = min(k*abs(x_center-target_low),1)
             elif x_center > target_high:  # if car is to the right of the target, turn left
                 steer = -min(k*abs(x_center-target_high),1)
+            in_intersection = False
+
+        if in_intersection:
+            thottle = 0
+            brake = 0
+            if intersection_center is not None:
+                if intersection_center > 10*900//16:  #TODO # parameter to be calibrated
+                    steer = 1
 
         if driving_ctrl == 0:
             throttle = 0
@@ -142,6 +158,7 @@ if __name__=="__main__":
     after_stop_count = 0  # count since braking on
     delay_current = 0  # count since a red stop marker was not seen anymore
     iteration = 0  # need to activate throttle initially
+    in_intersection = False  # True if car is in the intersection
 
     pub = rospy.Publisher('prius', Control, queue_size=2)
     rospy.spin()

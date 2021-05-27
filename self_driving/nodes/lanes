@@ -76,8 +76,10 @@ def display_lines(img,lines,types):
                     cv2.line(line_image,(x1,y1),(x2,y2),(0,255,255),10)
                 elif types[count] == 2:  # 2 is stop marker, shown in red
                     cv2.line(line_image,(x1,y1),(x2,y2),(0,0,255),10)
-                else:  # side line, show in blue
+                elif types[count] == 0:  # side line, show in blue
                     cv2.line(line_image,(x1,y1),(x2,y2),(255,0,0),10)
+                elif types[count] == 4:
+                    cv2.line(line_image,(x1,y1),(x2,y2),(0,128,255),10)
             count += 1
     return line_image
 
@@ -113,7 +115,7 @@ def average_slope_intercept(image, lines):
             intercept = fit[1]
             if abs(slope) > 0.7:  # more vertical line
                 filtered_lines.append((slope, intercept))
-            elif abs(slope) < 0.2:  # more horizontal line
+            elif abs(slope) < 0.15:  # more horizontal line
                 candidate_stop_lines.append((slope, intercept))
     avg_lines = []
     # parameters
@@ -242,6 +244,9 @@ def callback(data):
         for ln in stops:  # for horizontal lines, find the stop markers
             if determine_line_type(cv_image, ln, 1, low_red_1, high_red_1, min_red_threshold, low_red_2, high_red_2):
                 types.append(2)
+                averaged_lines.append(ln)
+            elif determine_line_type(cv_image, ln, 1, low_yellow, high_yellow, 3*min_yellow_threshold):
+                types.append(3)
                 averaged_lines.append(ln)
         line_image = display_lines(cv_image, averaged_lines, types)
         combined_image = cv2.addWeighted(cv_image, 0.8, line_image, 1, 1)
