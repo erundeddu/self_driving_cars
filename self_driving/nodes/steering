@@ -2,12 +2,11 @@
 
 """
 PARAMETERS:
-    /steering/throttle (double): throttle level on the straights
-    /steering/k (double): proportional steering gain to align car to have center lane on the left
+    /steering/k (double): proportional steering gain to align car to have center line on the left
     /steering/stop_acc_min (int): number of consecutive times a horizontal stop marker has to be identified to be considered
     /steering/after_stop_delay (int): number of loops that the car is still after braking
-    /steering/target_low (int): lower target threshold for x-coordinate of the upper end of the center lane
-    /steering/target_high (int): upper target threshold for x-coordinate of the upper end of the center lane
+    /steering/target_low (int): lower target threshold for x-coordinate of the upper end of the center line
+    /steering/target_high (int): upper target threshold for x-coordinate of the upper end of the center line
 
 PUBLISHES:
     prius (prius_msgs/Control): throttle, braking, steering and gear to control Prius
