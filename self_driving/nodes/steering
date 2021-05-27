@@ -123,10 +123,12 @@ def callback(data):
             throttle = 0
             if intersection_center is not None:
                 if intersection_center > 530:  #TODO # parameter to be calibrated
-                    steer = -0.9
+                    steer = -0.9   # right turn
+                    #steer = 0.7  # left turn
                     started_turning = True
             if started_turning:
-                steer = -0.9
+                steer = -0.9   # right turn
+                #steer = 0.7  # left turn
 
         if driving_ctrl == 0:
             throttle = 0
