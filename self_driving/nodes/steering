@@ -32,11 +32,11 @@ def service_callback(req):
 
 def callback(data):
     # callback to execute when receiving lane values
-    global throttle, brake, steer, gear, stop_acc, after_stop_count, delay_current, iteration
+    global throttle, brake, steer, gear, stop_acc, after_stop_count, delay_current, iteration, in_intersection, started_turning
     pts_array = []  # array of points
     types = []  # array of types
     array = data.data  # array of [point, type, point, type, point, type...]
-    intersection_center = 
+    intersection_center = None
 
     gear = 2  # put Prius in drive
     brake = 0
@@ -57,6 +57,7 @@ def callback(data):
             else:
                 types.append(array[ii])
 
+    x_center = None
     if pts_array is not None:
         x_center_acc = 0  # accumulator for x coordinates of center lanes seen
         x_center_num = 0  # number of center lanes seen
@@ -107,18 +108,21 @@ def callback(data):
         
         # center Prius so that center line is to the left
         if x_center is not None and not is_braking:  # if a center lane is received and the car is not braking, center the car
-            if x_center < target_low:  # if car is to the left of the target, turn right
+            if x_center < target_low:  # if car is to the right of the target, steer left
                 steer = min(k*abs(x_center-target_low),1)
-            elif x_center > target_high:  # if car is to the right of the target, turn left
+            elif x_center > target_high:  # if car is to the left of the target, steer right
                 steer = -min(k*abs(x_center-target_high),1)
             in_intersection = False
+            started_turning = False
 
         if in_intersection:
-            thottle = 0
-            brake = 0
+            throttle = 0
             if intersection_center is not None:
-                if intersection_center > 10*900//16:  #TODO # parameter to be calibrated
-                    steer = 1
+                if intersection_center > 530:  #TODO # parameter to be calibrated
+                    steer = -0.9
+                    started_turning = True
+            if started_turning:
+                steer = -0.9
 
         if driving_ctrl == 0:
             throttle = 0
@@ -159,6 +163,7 @@ if __name__=="__main__":
     delay_current = 0  # count since a red stop marker was not seen anymore
     iteration = 0  # need to activate throttle initially
     in_intersection = False  # True if car is in the intersection
+    started_turning = False
 
     pub = rospy.Publisher('prius', Control, queue_size=2)
     rospy.spin()

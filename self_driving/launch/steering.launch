@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <launch>
     <!--param name="steering/throttle" value="0.01"/-->
-    <param name="steering/k" value="0.01"/>
-    <param name="steering/stop_acc_min" value="5"/>
-    <param name="steering/target_low" value="280"/>
+    <param name="steering/k" value="0.003"/>
+    <param name="steering/stop_acc_min" value="3"/>
+    <param name="steering/target_low" value="270"/>
     <param name="steering/target_high" value="300"/>
     <param name="steering/after_stop_delay" value="60"/>
     <node pkg="self_driving" type="steering" name="steering" output="screen"/>

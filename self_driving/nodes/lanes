@@ -78,7 +78,7 @@ def display_lines(img,lines,types):
                     cv2.line(line_image,(x1,y1),(x2,y2),(0,0,255),10)
                 elif types[count] == 0:  # side line, show in blue
                     cv2.line(line_image,(x1,y1),(x2,y2),(255,0,0),10)
-                elif types[count] == 4:
+                elif types[count] == 3:
                     cv2.line(line_image,(x1,y1),(x2,y2),(0,128,255),10)
             count += 1
     return line_image
@@ -253,9 +253,9 @@ def callback(data):
         lane_data = Int32MultiArray()
         lane_data_array = []
         for ii in range(len(types)):
-            if types[ii] != 2:  # for stop markers, append y coord
+            if types[ii] == 0 or types[ii] == 1:  
                 lane_data_array.append(averaged_lines[ii][0][2])
-            else:  # for other lines, append top x coord
+            else:  # for stop markers, append y coord
                 lane_data_array.append(averaged_lines[ii][0][1])
             lane_data_array.append(types[ii])  # after the coord, append the type of the line
         lane_data.data = lane_data_array
