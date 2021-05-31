@@ -17,6 +17,141 @@
         <color>0 0 0</color>
 	</include>
 
+    <!--reference: http://gazebosim.org/tutorials?tut=actor&cat=build_robot-->
+    <actor name="actor_1">
+      <skin>
+        <filename>walk.dae</filename>
+      </skin>
+      <animation name="walking">
+        <filename>walk.dae</filename>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <trajectory id="0" type="walking">
+          <waypoint>
+            <time>0</time>
+            <pose>12 -9 0 0 0 1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>6</time>
+            <pose>12 9 0 0 0 1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>7</time>
+            <pose>12 9 0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>13</time>
+            <pose>-12 9 0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>14</time>
+            <pose>-12 9 0 0 0 -1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>20</time>
+            <pose>-12 -9 0 0 0 -1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>21</time>
+            <pose>-12 -9 0 0 0 0</pose>
+          </waypoint>
+          <waypoint>
+            <time>27</time>
+            <pose>12 -9 0 0 0 0</pose>
+          </waypoint>
+          <waypoint>
+            <time>28</time>
+            <pose>12 -9 0 0 0 1.57</pose>
+          </waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
+    <actor name="actor_2">
+      <skin>
+        <filename>walk.dae</filename>
+      </skin>
+      <animation name="walking">
+        <filename>walk.dae</filename>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <trajectory id="0" type="walking">
+          <waypoint>
+            <time>0</time>
+            <pose>12.5 -9 0 0 0 1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>10</time>
+            <pose>12.5 9 0 0 0 1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>11</time>
+            <pose>12.5 9 0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>21</time>
+            <pose>-12.5 9 0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>22</time>
+            <pose>-12.5 9 0 0 0 -1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>32</time>
+            <pose>-12.5 -9 0 0 0 -1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>33</time>
+            <pose>-12.5 -9 0 0 0 0</pose>
+          </waypoint>
+          <waypoint>
+            <time>43</time>
+            <pose>12.5 -9 0 0 0 0</pose>
+          </waypoint>
+          <waypoint>
+            <time>44</time>
+            <pose>12.5 -9 0 0 0 1.57</pose>
+          </waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
+    <actor name="actor_3">
+      <skin>
+        <filename>walk.dae</filename>
+      </skin>
+      <animation name="walking">
+        <filename>walk.dae</filename>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <trajectory id="0" type="walking">
+          <waypoint>
+            <time>0</time>
+            <pose>30 -9 0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>10</time>
+            <pose>18 -9 0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>15</time>
+            <pose>18 -9 0 0 0 0</pose>
+          </waypoint>
+          <waypoint>
+            <time>25</time>
+            <pose>30 -9 0 0 0 0</pose>
+          </waypoint>
+          <waypoint>
+            <time>30</time>
+            <pose>30 -9 0 0 0 3.14</pose>
+          </waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
     <include>
         <uri>model://house_1</uri>
         <pose>22 29 0 0 0 0 </pose>
@@ -29,14 +164,15 @@
         <uri>model://school</uri>
         <pose>-40 0 0 0 0 1.5709</pose>
     </include>
-    <include>
+    <!--include>
         <uri>model://fountain</uri>
         <pose>12 6 0 0 0 0</pose>
-    </include>
+    </include-->
     <include>
         <uri>model://law_office</uri>
         <pose>3 -27 0 0 0 3.14159</pose>
     </include>
+    <!--
     <include>
         <uri>model://oak_tree</uri>
         <name>oak_1</name>
@@ -77,6 +213,7 @@
         <name>oak_8</name>
         <pose>-8 5 0 0 0 0</pose>
     </include>
+    -->
 
     <include>
 		<uri>model://road_4</uri>

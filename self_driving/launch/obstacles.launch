@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<launch>
+    <param name="steering/threshold" value="4"/>
+    <node pkg="self_driving" type="obstacles" name="obstacles" output="screen"/>
+</launch>

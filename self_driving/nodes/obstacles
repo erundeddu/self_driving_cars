@@ -1,0 +1,108 @@
+#!/usr/bin/env python
+
+"""
+PARAMETERS:
+    /obstacles/threshold (double): distance threshold in [m] from sonar reading below which obstalce is detected
+
+PUBLISHES:
+    is_clear/front_sonar/all (std_msgs/Byte): if 0 is clear, else an obstacle is detected (4 lsb describe where obstacle is detected, from left to right sonar)
+    # is_clear/front_sonar/left_far (std_msgs/Bool): if true: no obstacle in front, if false: obstacle detected
+    # is_clear/front_sonar/left_middle (std_msgs/Bool): if true: no obstacle in front, if false: obstacle detected
+    # is_clear/front_sonar/right_far (std_msgs/Bool): if true: no obstacle in front, if false: obstacle detected
+    # is_clear/front_sonar/right_middle (std_msgs/Bool): if true: no obstacle in front, if false: obstacle detected
+
+SUBSCRIBES:
+    prius/front_sonar/left_far_range (sensor_msgs/Range): far left front sonar
+    prius/front_sonar/left_middle_range (sensor_msgs/Range): center left front sonar
+    prius/front_sonar/right_far_range (sensor_msgs/Range): far right front sonar
+    prius/front_sonar/right_middle_range (sensor_msgs/Range): center right front sonar
+
+SERVICES:
+
+"""
+
+import rospy
+
+from sensor_msgs.msg import Range
+from std_msgs.msg import Int32MultiArray, Bool, Byte
+
+
+def is_obstacle(data_range, max_range):
+    local_threshold = threshold
+    if local_threshold > max_range:
+        local_threshold = max_range
+    if data_range < local_threshold:
+        return True
+    else:
+        return False
+
+
+def callback_front_left_far(data):
+    """msg = Bool()
+    msg.data = is_obstacle(data.range, data.max_range)
+    front_left_far_pub.publish(msg)"""
+    global is_clear_front_all
+    if is_obstacle(data.range, data.max_range):
+        is_clear_front_all = is_clear_front_all | 0b0001
+    else:
+        is_clear_front_all = is_clear_front_all & 0b1110
+    obstacle_pub.publish(is_clear_front_all)
+
+
+def callback_front_left_middle(data):
+    """msg = Bool()
+    msg.data = is_obstacle(data.range, data.max_range)
+    front_left_middle_pub.publish(msg)"""
+    global is_clear_front_all
+    if is_obstacle(data.range, data.max_range):
+        is_clear_front_all = is_clear_front_all | 0b0010
+    else:
+        is_clear_front_all = is_clear_front_all & 0b1101
+    obstacle_pub.publish(is_clear_front_all)
+
+
+def callback_front_right_middle(data):
+    """msg = Bool()
+    msg.data = is_obstacle(data.range, data.max_range)
+    front_right_middle_pub.publish(msg)"""
+    global is_clear_front_all
+    if is_obstacle(data.range, data.max_range):
+        is_clear_front_all = is_clear_front_all | 0b0100
+    else:
+        is_clear_front_all = is_clear_front_all & 0b1011
+    obstacle_pub.publish(is_clear_front_all)
+
+
+def callback_front_right_far(data):
+    """msg = Bool()
+    msg.data = is_obstacle(data.range, data.max_range)
+    front_right_far_pub.publish(msg)"""
+    global is_clear_front_all
+    if is_obstacle(data.range, data.max_range):
+        is_clear_front_all = is_clear_front_all | 0b1000
+    else:
+        is_clear_front_all = is_clear_front_all & 0b0111
+    obstacle_pub.publish(is_clear_front_all)
+
+
+if __name__=="__main__":
+    rospy.init_node('obstacles')
+    front_left_far_sub = rospy.Subscriber("/prius/front_sonar/left_far_range", Range, callback_front_left_far)
+    front_left_middle_sub = rospy.Subscriber("/prius/front_sonar/left_middle_range", Range, callback_front_left_middle)
+    front_right_far_sub = rospy.Subscriber("/prius/front_sonar/right_far_range", Range, callback_front_right_far)
+    front_right_middle_sub = rospy.Subscriber("/prius/front_sonar/right_middle_range", Range, callback_front_right_middle)
+
+    """
+    front_left_far_pub = rospy.Publisher("is_clear/front_sonar/left_far", Bool, queue_size=2)
+    front_left_middle_pub = rospy.Publisher("is_clear/front_sonar/left_middle", Bool, queue_size=2)
+    front_right_far_pub = rospy.Publisher("is_clear/front_sonar/right_far", Bool, queue_size=2)
+    front_right_middle_pub = rospy.Publisher("is_clear/front_sonar/right_middle", Bool, queue_size=2)
+    """
+
+    is_clear_front_all = 0b1111
+
+    obstacle_pub = rospy.Publisher("is_clear/front_sonar/all", Byte, queue_size=2)
+
+    threshold = rospy.get_param("/obstacles/threshold", 4)
+
+    rospy.spin()

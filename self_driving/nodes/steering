@@ -13,6 +13,7 @@ PUBLISHES:
 
 SUBSCRIBES:
     my_lanes/vals (std_msgs/Int32MultiArray): key points of the lanes and stop markers detected
+    is_clear/front_sonar/all (std_msgs/Byte): if 0 is clear, else an obstacle is detected (4 lsb describe where obstacle is detected, from left to right sonar)
 
 SERVICES:
     enable_driving (self_driving/enable_driving): 0 holds the car in brake, 1 drives autonomously
@@ -22,9 +23,14 @@ import rospy
 import numpy as np
 from prius_msgs.msg import Control
 from self_driving.srv import enable_driving
-from std_msgs.msg import Int32MultiArray
+from std_msgs.msg import Int32MultiArray, Byte
+
+def is_clear_callback(data):
+    global is_clear_all
+    is_clear_all = data.data
 
 def service_callback(req):
+    # change global variable driving_ctrl to enable/disable self driving
     global driving_ctrl
     driving_ctrl = req.ctrl
     return []
@@ -129,7 +135,7 @@ def callback(data):
                 steer = -0.9   # right turn
                 #steer = 0.7  # left turn
 
-        if driving_ctrl == 0:
+        if driving_ctrl == 0 or is_clear_all:
             throttle = 0
             brake = 1
             steer = 0
@@ -146,7 +152,8 @@ def callback(data):
 
 if __name__=="__main__":
     rospy.init_node('steering')
-    rospy.sub =  rospy.Subscriber("/my_lanes/vals",Int32MultiArray,callback)
+    sub_lanes = rospy.Subscriber("/my_lanes/vals",Int32MultiArray,callback)
+    sub_obstacles = rospy.Subscriber("/is_clear/front_sonar/all",Byte,is_clear_callback)
     s = rospy.Service('enable_driving', enable_driving, service_callback)
 
     # throttle = rospy.get_param("/steering/throttle", 0.02)
@@ -170,6 +177,7 @@ if __name__=="__main__":
     in_intersection = False  # True if car is in the intersection
     started_turning = False
     center_line_acc = 0
+    is_clear_all = 0b1111  # from lsb to msb: left to right sonars (1: obstacle is currently detected)
 
     pub = rospy.Publisher('prius', Control, queue_size=2)
     rospy.spin()
