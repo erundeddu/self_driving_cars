@@ -2,7 +2,7 @@
 
 """
 PARAMETERS:
-    /obstacles/threshold (double): distance threshold in [m] from sonar reading below which obstalce is detected
+    /obstacles/threshold (double): distance threshold in [m] from sonar reading below which obstacle is detected
 
 PUBLISHES:
     is_clear/front_sonar/all (std_msgs/Byte): if 0 is clear, else an obstacle is detected (4 lsb describe where obstacle is detected, from left to right sonar)
