@@ -6,5 +6,6 @@
     <param name="steering/target_low" value="280"/>
     <param name="steering/target_high" value="300"/>
     <param name="steering/after_stop_delay" value="40"/>
+    <param name="steering/intersection_y_threshold" value="530"/>
     <node pkg="self_driving" type="steering" name="steering" output="screen"/>
 </launch>

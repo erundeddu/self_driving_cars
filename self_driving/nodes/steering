@@ -7,6 +7,7 @@ PARAMETERS:
     /steering/after_stop_delay (int): number of loops that the car is still after braking
     /steering/target_low (int): lower target threshold for x-coordinate of the upper end of the center line
     /steering/target_high (int): upper target threshold for x-coordinate of the upper end of the center line
+    /steering/intersection_y_threshold (int): turn right when the intersection perpendicular center line is at image coord y > this value
 
 PUBLISHES:
     prius (prius_msgs/Control): throttle, braking, steering and gear to control Prius
@@ -136,7 +137,7 @@ def callback(data):
         if in_intersection and not is_braking:
             throttle = 0
             if intersection_center is not None:
-                if intersection_center > 530:  #TODO # parameter to be calibrated
+                if intersection_center > intersection_y_threshold:  #TODO # parameter to be calibrated
                     steer = -0.9   # right turn
                     #steer = 0.7  # left turn
                     started_turning = True
@@ -172,6 +173,7 @@ if __name__=="__main__":
     after_stop_delay = rospy.get_param("/steering/after_stop_delay", 30)
     target_low = rospy.get_param("/steering/target_low", 280)
     target_high = rospy.get_param("/steering/target_high", 300)
+    intersection_y_threshold = rospy.get_param("/steering/intersection_y_threshold", 530)
 
     # initial state of the prius
     brake = 0

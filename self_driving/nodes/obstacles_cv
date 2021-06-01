@@ -2,6 +2,7 @@
 
 """
 PARAMETERS:
+    obstacles_cv/scale_search (double): rescale value for multiscale detection of pedestrians. Lower value gives more granularity but takes longer
 
 PUBLISHES:
     obstacles_cv/image_raw (sensor_msgs/Image): image with bounding boxes for pedestrians
@@ -40,7 +41,7 @@ def callback(data):
     (regions, _) = hog.detectMultiScale(cv_image, 
                                         winStride=(4, 4),
                                         padding=(4, 4),
-                                        scale=1.05)
+                                        scale=scale_search)
     valid_regions = []
     invalid_regions = []
     new_height = cv_image.shape[0]
@@ -76,6 +77,8 @@ if __name__=="__main__":
     pub = rospy.Publisher("/is_clear/front_camera/all",Byte,queue_size=2)
     bridge = CvBridge()  # used to convert ROS images to opencv images and vice versa
     image_sub = rospy.Subscriber("/prius/front_camera/image_raw",Image,callback)
+
+    scale_search = rospy.get_param("/obstacles_cv/scale_search", 1.05)
 
     hog = cv2.HOGDescriptor()
     hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())    
