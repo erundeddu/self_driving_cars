@@ -41,8 +41,9 @@ def callback(data):
                                         padding=(4, 4),
                                         scale=1.05)
     valid_regions = []
+    new_height = cv_image.shape[0]
     for (x, y, w, h) in regions:  # some filtering to avoid false positives at the sides 
-        if new_width/5 < x+w/2 < 4*new_width/5:
+        if new_width/4 < x+w/2 < 3*new_width/4 and y+h/2 > new_height/2:
             valid_regions.append((x, y, w, h))
 
     for (x, y, w, h) in valid_regions:   
@@ -50,12 +51,12 @@ def callback(data):
                     (x + w, y + h), 
                     (0, 0, 255), 2)
     cv_image = imutils.resize(cv_image, width=max(400, original_width))
-    """try:
+    try:
         image_pub.publish(bridge.cv2_to_imgmsg(cv_image, "bgr8"))  # convert to ros image and publish
     except CvBridgeError as e:
-        print(e)"""
+        print(e)
     msg = Byte()
-    if len(regions) > 0:
+    if len(valid_regions) > 0:
         msg.data = 1
     else:
         msg.data = 0
