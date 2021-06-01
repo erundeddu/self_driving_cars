@@ -34,3 +34,7 @@ catkin_install_python(PROGRAMS nodes/steering
 
 catkin_install_python(PROGRAMS nodes/obstacles
                       DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+
+catkin_install_python(PROGRAMS nodes/obstacles_cv
+                      DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+

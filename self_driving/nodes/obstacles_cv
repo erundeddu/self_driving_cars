@@ -1,0 +1,63 @@
+#!/usr/bin/env python
+
+"""
+PARAMETERS:
+
+PUBLISHES:
+    
+    is_clear/front_sonar/all (std_msgs/Byte): if 0 is clear, else an obstacle is detected
+
+SUBSCRIBES:
+    prius/front_camera/image_raw (sensor_msgs/Image): Image from the front camera of the Prius
+
+SERVICES:
+
+"""
+
+import rospy
+
+from sensor_msgs.msg import Image
+from std_msgs.msg import Byte
+import cv2
+import numpy as np
+import imutils
+from cv_bridge import CvBridge, CvBridgeError
+
+# this code comes from https://www.geeksforgeeks.org/pedestrian-detection-using-opencv-python/#:~:text=However%2C%20OpenCV%20has%20a%20built,in%20images%20and%20video%20streams.&text=This%20algorithm%20checks%20directly%20surrounding%20pixels%20of%20every%20single%20pixel.
+
+def callback(data):
+    # process incoming image, find and publish lines
+    try:
+        cv_image = bridge.imgmsg_to_cv2(data, "bgr8")
+    except CvBridgeError as e:
+        print(e)
+    hog = cv2.HOGDescriptor()
+    hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())    
+    # Resizing the Image
+    cv_image = imutils.resize(cv_image,
+                        width=min(400, cv_image.shape[1]))
+    
+    # Detecting all the regions in the 
+    # Image that has a pedestrians inside it
+    (regions, _) = hog.detectMultiScale(cv_image, 
+                                        winStride=(4, 4),
+                                        padding=(4, 4),
+                                        scale=1.05)
+    
+    for (x, y, w, h) in regions:
+        cv2.rectangle(cv_image, (x, y), 
+                    (x + w, y + h), 
+                    (0, 0, 255), 2)
+    try:
+        image_pub.publish(bridge.cv2_to_imgmsg(cv_image, "bgr8"))  # convert to ros image and publish
+    except CvBridgeError as e:
+        print(e)
+
+
+if __name__=="__main__":
+    rospy.init_node('obstacles_cv')
+    image_pub = rospy.Publisher("/obstacles_cv/image_raw",Image,queue_size=2)
+    bridge = CvBridge()  # used to convert ROS images to opencv images and vice versa
+    image_sub = rospy.Subscriber("/prius/front_camera/image_raw",Image,callback)
+
+    rospy.spin()

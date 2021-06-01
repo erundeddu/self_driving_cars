@@ -11,5 +11,5 @@
 		<include file="$(find prius_teleop)/launch/prius_teleop.launch"/>
 	</group-->
 
-    <include file="$(find self_driving)/launch/obstacles.launch"/>
+    <!--include file="$(find self_driving)/launch/obstacles.launch"/-->
 </launch>

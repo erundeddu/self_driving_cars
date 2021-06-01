@@ -85,7 +85,7 @@ def callback(data):
         except:
             x_center = None
 
-        if not found_stop:  # if a stop was not found, then zero all accumulators or prepare to stop
+        if not found_stop:  # if a stop was not found, then zero/reduce all accumulators or prepare to stop
             if (stop_acc >= stop_acc_min or after_stop_count > 0):  # if a stop marker was seen previously for >= the minimum number of times or the car is waiting after having started braking
                 # if stop marker was seen for many consecutive times then car was going slow, wait longer to stop to stop with the wheels at the marker
                 if delay_current > stop_acc - stop_acc_min:
@@ -105,7 +105,7 @@ def callback(data):
             else:
                 # a stop marker was not seen for >= the minimum number of times, car does not brake and stop marker accumulator is zeroed
                 # or after_stop_count = 0 and the car can restart
-                stop_acc = 0
+                stop_acc = max(0, stop_acc-1)
                 is_braking = False
                 delay_current = 0
         
@@ -177,7 +177,8 @@ if __name__=="__main__":
     in_intersection = False  # True if car is in the intersection
     started_turning = False
     center_line_acc = 0
-    is_clear_all = 0b1111  # from lsb to msb: left to right sonars (1: obstacle is currently detected)
-
+    #is_clear_all = 0b1111  # from lsb to msb: left to right sonars (1: obstacle is currently detected)
+    is_clear_all = 0
+    
     pub = rospy.Publisher('prius', Control, queue_size=2)
     rospy.spin()
