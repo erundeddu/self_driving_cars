@@ -1,6 +1,13 @@
 <?xml version="1.0"?>
 <launch>
+    <arg name="display_processed_image" default="true" doc="if true, the processed image is displayed"/>
     <param name="steering/threshold" value="4"/>
     <!--node pkg="self_driving" type="obstacles" name="obstacles" output="screen"/-->
     <node pkg="self_driving" type="obstacles_cv" name="obstacles_cv" output="screen"/>
+    <group if="$(arg display_processed_image)">
+		<node name="image_view_obstacles" pkg="image_view" type="image_view">
+            <param name="~autosize" value="true"/>
+            <remap from="image" to="obstacles_cv/image_raw"/>
+        </node>
+	</group>
 </launch>
