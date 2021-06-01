@@ -263,6 +263,14 @@ def callback(data):
     else:  # if no lines detected
         combined_image = cv_image
 
+    # resize
+    original_width = combined_image.shape[1]
+    new_width = min(400, combined_image.shape[1])
+    scale = new_width/original_width
+    new_height = int(combined_image.shape[0]*scale)
+    dim = (new_width, new_height)
+    combined_image = cv2.resize(combined_image, dim, interpolation=cv2.INTER_AREA)
+
     try:
         image_pub.publish(bridge.cv2_to_imgmsg(combined_image, "bgr8"))  # convert to ros image and publish
     except CvBridgeError as e:

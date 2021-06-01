@@ -59,7 +59,7 @@ def callback(data):
         throttle = 0.01
     else:
         throttle = 0
-        if not iteration % 4:  # brake every 5 iterations to not gain excessive speed
+        if not iteration % 4:  # brake every x iterations to not gain excessive speed
             brake = 0.1
     is_braking = False  # if True, Prius is braking
 

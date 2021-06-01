@@ -175,6 +175,7 @@
         <pose>3 -27 0 0 0 3.14159</pose>
     </include>
     
+    <!--
     <include>
         <uri>model://oak_tree</uri>
         <name>oak_1</name>
@@ -215,6 +216,7 @@
         <name>oak_8</name>
         <pose>-8 5 0 0 0 0</pose>
     </include>
+    -->
 
     <include>
 		<uri>model://road_4</uri>

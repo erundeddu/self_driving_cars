@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <launch>
     <arg name="display_processed_image" default="true" doc="if true, the processed image is displayed"/>
-    <param name="/lanes/hough_transform" value="100"/>
-    <param name="/lanes/min_line_length" value="40"/>
+    <param name="/lanes/hough_transform" value="95"/>
+    <param name="/lanes/min_line_length" value="35"/>
     <param name="/lanes/max_line_gap" value="5"/>
     <param name="/lanes/lane_rect" value="8"/>
     <param name="/lanes/min_red_threshold" value="220000"/>
