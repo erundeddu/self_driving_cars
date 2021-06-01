@@ -73,8 +73,8 @@ def callback(data):
 
 if __name__=="__main__":
     rospy.init_node('obstacles_cv')
-    image_pub = rospy.Publisher("/obstacles_cv/image_raw",Image,queue_size=2)
-    pub = rospy.Publisher("/is_clear/front_camera/all",Byte,queue_size=2)
+    image_pub = rospy.Publisher("/obstacles_cv/image_raw",Image,queue_size=1)
+    pub = rospy.Publisher("/is_clear/front_camera/all",Byte,queue_size=1)
     bridge = CvBridge()  # used to convert ROS images to opencv images and vice versa
     image_sub = rospy.Subscriber("/prius/front_camera/image_raw",Image,callback)
 

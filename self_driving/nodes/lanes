@@ -279,7 +279,7 @@ def callback(data):
 
 if __name__=="__main__":
     rospy.init_node('lanes')
-    image_pub = rospy.Publisher("/my_lanes/image_raw",Image,queue_size=2)
+    image_pub = rospy.Publisher("/my_lanes/image_raw",Image,queue_size=1)
     bridge = CvBridge()  # used to convert ROS images to opencv images and vice versa
     image_sub = rospy.Subscriber("/prius/front_camera/image_raw",Image,callback)
     lanes_pub = rospy.Publisher("/my_lanes/vals",Int32MultiArray,queue_size=2)
