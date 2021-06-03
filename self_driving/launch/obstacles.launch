@@ -3,6 +3,7 @@
     <arg name="display_processed_image" default="true" doc="if true, the processed image is displayed"/>
     <param name="obstacles/threshold" value="4"/>
     <param name="obstacles_cv/scale_search" value="1.1"/>
+    <param name="obstacles_cv/track_to_detect" value="35"/>
     <node pkg="self_driving" type="obstacles" name="obstacles" output="screen"/>
     <node pkg="self_driving" type="obstacles_cv" name="obstacles_cv" output="screen"/>
     <group if="$(arg display_processed_image)">

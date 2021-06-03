@@ -3,6 +3,7 @@
 """
 PARAMETERS:
     obstacles_cv/scale_search (double): rescale value for multiscale detection of pedestrians. Lower value gives more granularity but takes longer
+    obstacles_cv/track_to_detect (int): number of tracking iterations per successful detection
 
 PUBLISHES:
     obstacles_cv/image_raw (sensor_msgs/Image): image with bounding boxes for pedestrians
@@ -29,7 +30,7 @@ import time
 
 def detect_pedestrians(frame):
     # Detecting all the regions in the Image with a pedestrian
-    (regions, _) = hog.detectMultiScale(frame, 
+    (regions, weights) = hog.detectMultiScale(frame, 
                                         winStride=(4, 4),
                                         padding=(4, 4),
                                         scale=scale_search)
@@ -57,7 +58,6 @@ def track_pedestrians(frame, valid_regions_prev, frame_prev):
         res = cv2.matchTemplate(frame_g, I_prev, cv2.TM_CCORR_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
         ii_max = max_loc[0]
-        jj_max = int(max_loc[1] - 0.2*h)
         jj_max = max_loc[1]
         valid_regions.append((ii_max, jj_max, w, h))
     return valid_regions
@@ -84,9 +84,8 @@ def callback(data):
     prev_image = cv_image
 
     iterations += 1
-    if iterations == 30 or len(valid_regions) == 0:
+    if iterations == track_to_detect or len(valid_regions) == 0:
         iterations = 0
-    
     for (x, y, w, h) in valid_regions:   
         cv_image = cv2.rectangle(cv_image, (x, y), 
                     (x + w, y + h), 
@@ -116,6 +115,7 @@ if __name__=="__main__":
     image_sub = rospy.Subscriber("/prius/front_camera/image_raw",Image,callback)
 
     scale_search = rospy.get_param("/obstacles_cv/scale_search", 1.05)
+    track_to_detect = rospy.get_param("/obstacles_cv/track_to_detect", 35)
 
     hog = cv2.HOGDescriptor()
     hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())    
