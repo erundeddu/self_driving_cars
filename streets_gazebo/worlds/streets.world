@@ -169,19 +169,19 @@
             <pose>12 -8 0 0 0 1.57</pose>
           </waypoint>
           <waypoint>
-            <time>8</time>
+            <time>11</time>
             <pose>12 8 0 0 0 1.57</pose>
           </waypoint>
           <waypoint>
-            <time>9</time>
+            <time>12</time>
             <pose>12 8 0 0 0 -1.57</pose>
           </waypoint>
           <waypoint>
-            <time>17</time>
+            <time>23</time>
             <pose>12 -8 0 0 0 -1.57</pose>
           </waypoint>
           <waypoint>
-            <time>18</time>
+            <time>24</time>
             <pose>12 -8 0 0 0 1.57</pose>
           </waypoint>
         </trajectory>

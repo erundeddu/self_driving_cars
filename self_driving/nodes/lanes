@@ -199,6 +199,7 @@ def determine_line_type(img, ln, trapz_type, color_low_1, color_high_1, color_th
             (pts[2]-lane_rect, pts[3]),
             (pts[2]+lane_rect, pts[3]),
             (pts[0]+lane_rect, pts[1]),]]], np.int32)
+
     elif trapz_type == 1:
         # for horizontal lines
         trapz = np.array([[[
@@ -206,6 +207,15 @@ def determine_line_type(img, ln, trapz_type, color_low_1, color_high_1, color_th
             (pts[2], max(pts[1]-lane_rect,0)),
             (pts[2], min(pts[3]+lane_rect,height)),
             (pts[0], min(pts[3]+lane_rect,height)),]]], np.int32)
+
+    elif trapz_type == 2:
+        # for horizontal stop lines
+        trapz = np.array([[[
+            (pts[0]+200, max(pts[1]-lane_rect,0)),
+            (pts[2]-200, max(pts[1]-lane_rect,0)),
+            (pts[2]-200, min(pts[3]+lane_rect,height)),
+            (pts[0]+200, min(pts[3]+lane_rect,height)),]]], np.int32)
+
     cv2.fillPoly(mask, trapz, [255,255,255])
     masked_image = cv2.bitwise_and(img, mask)  # get region of interest around line
     hsv_frame = cv2.cvtColor(masked_image, cv2.COLOR_BGR2HSV)  # convert ROI to HSV for color detection
@@ -242,7 +252,7 @@ def callback(data):
             else:
                 types.append(0)
         for ln in stops:  # for horizontal lines, find the stop markers
-            if determine_line_type(cv_image, ln, 1, low_red_1, high_red_1, min_red_threshold, low_red_2, high_red_2):
+            if determine_line_type(cv_image, ln, 2, low_red_1, high_red_1, min_red_threshold, low_red_2, high_red_2):
                 types.append(2)
                 averaged_lines.append(ln)
             elif determine_line_type(cv_image, ln, 1, low_yellow, high_yellow, 3*min_yellow_threshold):
