@@ -13,7 +13,7 @@
 		<uri>model://sun</uri>
 	</include>
 	<include>
-		<uri>model://grass_plane</uri>
+		<uri>model://ground_plane</uri>
         <color>0 0 0</color>
 	</include>
 

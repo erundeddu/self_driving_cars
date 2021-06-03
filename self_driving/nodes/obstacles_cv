@@ -22,6 +22,7 @@ from std_msgs.msg import Byte
 import cv2
 import numpy as np
 from cv_bridge import CvBridge, CvBridgeError
+import time
 
 # this code comes from https://www.geeksforgeeks.org/pedestrian-detection-using-opencv-python/#:~:text=However%2C%20OpenCV%20has%20a%20built,in%20images%20and%20video%20streams.&text=This%20algorithm%20checks%20directly%20surrounding%20pixels%20of%20every%20single%20pixel.
 
@@ -42,80 +43,23 @@ def detect_pedestrians(frame):
     return valid_regions, invalid_regions
 
 
-def SSD(I, T):
-    """
-    Returns the sum of squared difference of two matrices of same size
-    :param I: NumPy matrix of size nxm
-    :param T: NumPy matrix of size nxm
-    :return: sum of squared difference (a float)
-    """
-    height = I.shape[0]
-    width = I.shape[1]
-    D = 0
-    for ii in range(height):
-        for jj in range(width):
-            diff = I[ii, jj] - T[ii, jj]
-            D += diff**2
-    return D
-
-
 def track_pedestrians(frame, valid_regions_prev, frame_prev):
     valid_regions_new = list()
-    dx = 50
-    dy = 50
-    ds = 2
-    scales = [0.9, 0.95, 1.0, 1.05, 1.1]  # TODO multiscale
-    #frame_pad = np.pad(frame, dx, mode="edge")
-    frame_h = frame.shape[0]
-    frame_w = frame.shape[1]
 
     frame_g = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     frame_g_prev = cv2.cvtColor(frame_prev, cv2.COLOR_BGR2GRAY)
 
     valid_regions = list()
 
-    for (x, y, w, h) in valid_regions_prev:
-        max_ssd = np.inf
-        search_h = h + dx
-        search_w = w + dx
-        delta_h = int((search_h-h)/2)
-        delta_w = int((search_w-w)/2)
-        search_nw = np.array([x, y]) - np.array([dx, dy])
-        search_se = search_nw + np.array([search_h, search_w])
-
-        if search_nw[0] < 0:
-            search_se[0] -= search_nw[0]
-            search_nw[0] = 0
-        if search_nw[1] < 0:
-            search_se[1] -= search_nw [1]
-            search_nw[1] = 0
-        if search_se[0] > frame_h:
-            search_nw[0] += frame_h - search_se[0]
-            search_se[0] = frame_h + 1
-        if search_se[1] > frame_w:
-            search_nw[1] += frame_w - search_se[1]
-            search_se[1] = frame_w + 1
-
-        search_rows = search_h - h + 1
-        search_cols = search_w - w + 1
-        search_window = frame_g[search_nw[0]:search_se[0], search_nw[1]:search_se[1]]
-        
-        I_prev = frame_g_prev[y:(y+h), x:(x+w)]
-
-        ii_max = None
-        jj_max = None
-        for ii in range(search_rows):
-            if not ii % ds:
-                for jj in range(search_cols):
-                    if not jj % ds:
-                        I = search_window[ii:(h+ii), jj:(w+jj)]
-                        SSD_temp = SSD(I, I_prev)
-                        if SSD_temp < SSD_min:
-                            SSD_min = SSD_temp
-                            ii_max = ii
-                            jj_max = jj
-
-        valid_regions.append((jj_max, ii_max, w, h))
+    for (x, y, w, h) in valid_regions_prev:       
+        #I_prev = frame_g_prev[int(y+0.2*h):int(y+0.8*h), x:(x+w)]
+        I_prev = frame_g_prev[int(y):int(y+h), x:(x+w)]
+        res = cv2.matchTemplate(frame_g, I_prev, cv2.TM_CCORR_NORMED)
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+        ii_max = max_loc[0]
+        jj_max = int(max_loc[1] - 0.2*h)
+        jj_max = max_loc[1]
+        valid_regions.append((ii_max, jj_max, w, h))
     return valid_regions
 
 
@@ -132,16 +76,17 @@ def callback(data):
     new_height = int(cv_image.shape[0]*scale)
     dim = (new_width, new_height)
     cv_image = cv2.resize(cv_image, dim, interpolation=cv2.INTER_AREA)
-    
     if iterations == 0:
         valid_regions, invalid_regions = detect_pedestrians(cv_image)
     else:
         valid_regions = track_pedestrians(cv_image, prev_valid_regions, prev_image)
+        invalid_regions = []
+    prev_image = cv_image
 
     iterations += 1
-    if iterations == 5:
+    if iterations == 30 or len(valid_regions) == 0:
         iterations = 0
-
+    
     for (x, y, w, h) in valid_regions:   
         cv_image = cv2.rectangle(cv_image, (x, y), 
                     (x + w, y + h), 
@@ -152,7 +97,6 @@ def callback(data):
                     (255, 0, 0), 2)
     try:
         image_pub.publish(bridge.cv2_to_imgmsg(cv_image, "bgr8"))  # convert to ros image and publish
-        prev_image = cv_image
         prev_valid_regions = valid_regions
     except CvBridgeError as e:
         print(e)
