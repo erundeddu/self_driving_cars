@@ -59,17 +59,68 @@ def SSD(I, T):
     return D
 
 
-def track_pedestrians(frame, valid_regions_prev):
+def track_pedestrians(frame, valid_regions_prev, frame_prev):
     valid_regions_new = list()
-    dx = 25
-    scales = [0.9, 0.95, 1.0, 1.05, 1.1]
-    frame_pad = np.pad(frame, dx, mode="edge")
+    dx = 50
+    dy = 50
+    ds = 2
+    scales = [0.9, 0.95, 1.0, 1.05, 1.1]  # TODO multiscale
+    #frame_pad = np.pad(frame, dx, mode="edge")
+    frame_h = frame.shape[0]
+    frame_w = frame.shape[1]
+
+    frame_g = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    frame_g_prev = cv2.cvtColor(frame_prev, cv2.COLOR_BGR2GRAY)
+
+    valid_regions = list()
+
     for (x, y, w, h) in valid_regions_prev:
         max_ssd = np.inf
-        # TODO: continue this function
+        search_h = h + dx
+        search_w = w + dx
+        delta_h = int((search_h-h)/2)
+        delta_w = int((search_w-w)/2)
+        search_nw = np.array([x, y]) - np.array([dx, dy])
+        search_se = search_nw + np.array([search_h, search_w])
+
+        if search_nw[0] < 0:
+            search_se[0] -= search_nw[0]
+            search_nw[0] = 0
+        if search_nw[1] < 0:
+            search_se[1] -= search_nw [1]
+            search_nw[1] = 0
+        if search_se[0] > frame_h:
+            search_nw[0] += frame_h - search_se[0]
+            search_se[0] = frame_h + 1
+        if search_se[1] > frame_w:
+            search_nw[1] += frame_w - search_se[1]
+            search_se[1] = frame_w + 1
+
+        search_rows = search_h - h + 1
+        search_cols = search_w - w + 1
+        search_window = frame_g[search_nw[0]:search_se[0], search_nw[1]:search_se[1]]
+        
+        I_prev = frame_g_prev[y:(y+h), x:(x+w)]
+
+        ii_max = None
+        jj_max = None
+        for ii in range(search_rows):
+            if not ii % ds:
+                for jj in range(search_cols):
+                    if not jj % ds:
+                        I = search_window[ii:(h+ii), jj:(w+jj)]
+                        SSD_temp = SSD(I, I_prev)
+                        if SSD_temp < SSD_min:
+                            SSD_min = SSD_temp
+                            ii_max = ii
+                            jj_max = jj
+
+        valid_regions.append((jj_max, ii_max, w, h))
+    return valid_regions
 
 
 def callback(data):
+    global prev_image, prev_valid_regions, iterations
     try:
         cv_image = bridge.imgmsg_to_cv2(data, "bgr8")
     except CvBridgeError as e:
@@ -82,7 +133,14 @@ def callback(data):
     dim = (new_width, new_height)
     cv_image = cv2.resize(cv_image, dim, interpolation=cv2.INTER_AREA)
     
-    valid_regions, invalid_regions = detect_pedestrians(cv_image)
+    if iterations == 0:
+        valid_regions, invalid_regions = detect_pedestrians(cv_image)
+    else:
+        valid_regions = track_pedestrians(cv_image, prev_valid_regions, prev_image)
+
+    iterations += 1
+    if iterations == 5:
+        iterations = 0
 
     for (x, y, w, h) in valid_regions:   
         cv_image = cv2.rectangle(cv_image, (x, y), 
@@ -94,6 +152,8 @@ def callback(data):
                     (255, 0, 0), 2)
     try:
         image_pub.publish(bridge.cv2_to_imgmsg(cv_image, "bgr8"))  # convert to ros image and publish
+        prev_image = cv_image
+        prev_valid_regions = valid_regions
     except CvBridgeError as e:
         print(e)
     msg = Byte()
@@ -115,5 +175,8 @@ if __name__=="__main__":
 
     hog = cv2.HOGDescriptor()
     hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())    
+    prev_image = None  # stores previous frame
+    prev_valid_regions = None  # stores valid pedestrian regions found in previous frame
+    iterations = 0  # counter to switch between detection and tracking
 
     rospy.spin()
