@@ -1,0 +1,67 @@
+#!/usr/bin/env python
+
+"""
+PARAMETERS:
+
+PUBLISHES:
+
+SUBSCRIBES:
+    base_pose_ground_truth (nav_msgs/Odometry): true position of the Prius with respect to the origin of the Gazebo world
+
+SERVICES:
+
+"""
+
+import rospy
+
+from nav_msgs.msg import Odometry
+from std_msgs.msg import Byte
+import numpy as np
+
+
+def callback(data):
+    global x_prev, y_prev, x_goal, y_goal, margin, eps
+
+    x = data.pose.pose.position.x
+    y = data.pose.pose.position.y
+    theta = data.pose.pose.orientation.z 
+
+    x_dst = x - x_goal
+    y_dst = y - y_goal
+
+    x_dst_prev = x_prev - x_goal
+    y_dst_prev = y_prev - y_goal
+
+    x_dot = x - x_prev
+    y_dot = y - y_prev
+
+    # if x coordinate matches that of the goal, y distance is decreasing and car is moving in the y direction
+    cond1 = -margin < x_dst < margin and y_dst_prev - y_dst > eps and abs(x_dot) < eps and abs(y_dot) > eps
+    # if y coordinate matches that of the goal, x distance is decreasing and car is moving in the x direction
+    cond2 = -margin < y_dst < margin and x_dst_prev - x_dst > eps and abs(y_dot) < eps and abs(x_dot) > eps
+
+    msg = Byte()
+    if cond1 or cond2:
+        msg.data = 0  # do not turn right (go straight)
+    else:
+        msg.data = 1  # turn right
+
+    if x_dst 
+
+    x_prev = x
+    y_prev = y
+
+    pub.publish(msg)
+
+
+if __name__=="__main__":
+    rospy.init_node('navigation')
+    #pub = rospy.Publisher("/is_clear/front_camera/all",Byte,queue_size=1)
+    sub = rospy.Subscriber("/base_pose_ground_truth",Odometry,callback)
+    x_goal = 24
+    y_goal = 8
+    margin = 6
+    x_prev = 0
+    y_prev = 0
+    eps = 0.1
+    rospy.spin()

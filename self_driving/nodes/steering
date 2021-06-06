@@ -16,6 +16,8 @@ SUBSCRIBES:
     my_lanes/vals (std_msgs/Int32MultiArray): key points of the lanes and stop markers detected
     is_clear/front_sonar/all (std_msgs/Byte): if 0 is clear, else an obstacle is detected (4 lsb describe where obstacle is detected, from left to right sonar)
     is_clear/front_camera/all (std_msgs/Byte): if 0 is clear, else an obstacle is detected (5th bit is obstacle from camera)
+    base_pose_ground_truth (nav_msgs/Odometry): true position of the Prius with respect to the origin of the Gazebo world
+
 
 SERVICES:
     enable_driving (self_driving/enable_driving): 0 holds the car in brake, 1 drives autonomously
@@ -25,8 +27,49 @@ SERVICES:
 import rospy
 import numpy as np
 from prius_msgs.msg import Control
+from nav_msgs.msg import Odometry
 from self_driving.srv import enable_driving
 from std_msgs.msg import Int32MultiArray, Byte
+
+
+def navigation(data):
+    global x_prev, y_prev, x_goal, y_goal, margin, eps, turn_right, is_arrived, correct_intersection_trigger, cond1, cond2
+    x = data.pose.pose.position.x
+    y = data.pose.pose.position.y
+    if x_goal is not None and y_goal is not None:
+        x_dst = x - x_goal
+        y_dst = y - y_goal
+        x_dst_prev = x_prev - x_goal
+        y_dst_prev = y_prev - y_goal
+        x_dot = x - x_prev
+        y_dot = y - y_prev
+        # if x coordinate matches that of the goal, y distance is decreasing ##and car is moving in the y direction
+        #cond1 = -margin < x_dst < margin and y_dst_prev - y_dst > eps #and abs(x_dot) < eps and abs(y_dot) > eps
+        # if y coordinate matches that of the goal, x distance is decreasing ##and car is moving in the x direction
+        #cond2 = -margin < y_dst < margin and x_dst_prev - x_dst > eps #and abs(y_dot) < eps and abs(x_dot) > eps
+        
+        if not in_intersection:
+            cond1 = abs(y_dst_prev) - abs(y_dst) > eps  # getting closer in x
+            cond2 = abs(x_dst_prev) - abs(x_dst) > eps  # getting closer in y
+
+        if not is_braking:
+            if ((abs(x_dst_prev) > margin and abs(x_dst) < margin) or (abs(y_dst_prev) > margin and abs(y_dst) < margin)) and not (abs(x_dst) < margin and abs(y_dst) < margin):  # got in margin zone
+                correct_intersection_trigger = True
+            
+            if abs(x_dst) > margin and abs(y_dst) > margin:
+                correct_intersection_trigger = False
+
+        msg = Byte()
+        # TODO does not work
+        if (cond1 or cond2) and not correct_intersection_trigger:
+            turn_right = False  # do not turn right (go straight)
+        else:
+            turn_right = True  # turn right
+        if -margin < x_dst < margin and -margin < y_dst < margin and (not cond1) and (not cond2):
+            is_arrived = True
+        #print(str(cond1) + " " + str(cond2) + " " + str(correct_intersection_trigger))
+    x_prev = x
+    y_prev = y
 
 def is_clear_sonar_callback(data):
     global is_clear_all
@@ -47,7 +90,7 @@ def service_callback(req):
 
 def callback(data):
     # callback to execute when receiving lane values
-    global throttle, brake, steer, gear, stop_acc, after_stop_count, delay_current, iteration, in_intersection, started_turning, center_line_acc
+    global throttle, brake, steer, gear, stop_acc, after_stop_count, delay_current, iteration, in_intersection, started_turning, center_line_acc, is_braking, correct_intersection_trigger
     pts_array = []  # array of points
     types = []  # array of types
     array = data.data  # array of [point, type, point, type, point, type...]
@@ -137,19 +180,25 @@ def callback(data):
         if in_intersection and not is_braking:
             throttle = 0
             if intersection_center is not None:
-                if intersection_center > intersection_y_threshold:  #TODO # parameter to be calibrated
-                    steer = -0.9   # right turn
-                    #steer = 0.7  # left turn
-                    started_turning = True
+                # implement logic for deciding whether to turn right or keep straight
+                if turn_right:
+                    if intersection_center > intersection_y_threshold:
+                        steer = -0.9   # right turn
+                        #steer = 0.7  # left turn
+                        started_turning = True
+                        correct_intersection_trigger = False
             if started_turning:
                 steer = -0.9   # right turn
                 #steer = 0.7  # left turn
 
-        if driving_ctrl == 0 or is_clear_all:
+        if driving_ctrl == 0 or is_arrived or is_clear_all:
             throttle = 0
             brake = 1
             steer = 0
             iteration = 0
+
+        if is_arrived:
+            gear = 1
 
         # assemble message and publish commands to Prius
         msg.throttle = throttle
@@ -165,6 +214,7 @@ if __name__=="__main__":
     sub_lanes = rospy.Subscriber("/my_lanes/vals",Int32MultiArray,callback)
     sub_obstacles = rospy.Subscriber("/is_clear/front_sonar/all",Byte,is_clear_sonar_callback)
     sub_obstacles_cv = rospy.Subscriber("/is_clear/front_camera/all",Byte,is_clear_camera_callback)
+    sub = rospy.Subscriber("/base_pose_ground_truth",Odometry,navigation)
     s = rospy.Service('enable_driving', enable_driving, service_callback)
 
     # throttle = rospy.get_param("/steering/throttle", 0.02)
@@ -191,6 +241,20 @@ if __name__=="__main__":
     center_line_acc = 0
     #is_clear_all = 0b1111  # from lsb to msb: left to right sonars (1: obstacle is currently detected), camera
     is_clear_all = 0
+
+    x_prev = 0
+    y_prev = 0
+    # TODO set goal from terminal
+    x_goal = 12
+    y_goal = 18
+    margin = 7
+    eps = 0.002
+    turn_right = False
+    is_arrived = False
+    correct_intersection_trigger = False
+    is_braking = False
+    cond1 = False
+    cond2 = False
     
     pub = rospy.Publisher('prius', Control, queue_size=2)
     rospy.spin()
