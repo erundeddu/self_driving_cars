@@ -6,25 +6,20 @@ PARAMETERS:
 
 PUBLISHES:
     is_clear/front_sonar/all (std_msgs/Byte): if 0 is clear, else an obstacle is detected (4 lsb describe where obstacle is detected, from left to right sonar)
-    # is_clear/front_sonar/left_far (std_msgs/Bool): if true: no obstacle in front, if false: obstacle detected
-    # is_clear/front_sonar/left_middle (std_msgs/Bool): if true: no obstacle in front, if false: obstacle detected
-    # is_clear/front_sonar/right_far (std_msgs/Bool): if true: no obstacle in front, if false: obstacle detected
-    # is_clear/front_sonar/right_middle (std_msgs/Bool): if true: no obstacle in front, if false: obstacle detected
-
+    
 SUBSCRIBES:
-    prius/front_sonar/left_far_range (sensor_msgs/Range): far left front sonar
-    prius/front_sonar/left_middle_range (sensor_msgs/Range): center left front sonar
-    prius/front_sonar/right_far_range (sensor_msgs/Range): far right front sonar
-    prius/front_sonar/right_middle_range (sensor_msgs/Range): center right front sonar
+    prius/front_sonar/left_far_range (sensor_msgs/Range): far left front sonar reading
+    prius/front_sonar/left_middle_range (sensor_msgs/Range): center left front sonar reading
+    prius/front_sonar/right_far_range (sensor_msgs/Range): far right front sonar reading
+    prius/front_sonar/right_middle_range (sensor_msgs/Range): center right front sonar reading
 
 SERVICES:
 
 """
 
 import rospy
-
 from sensor_msgs.msg import Range
-from std_msgs.msg import Int32MultiArray, Bool, Byte
+from std_msgs.msg import Byte
 
 
 def is_obstacle(data_range, max_range):
@@ -38,9 +33,12 @@ def is_obstacle(data_range, max_range):
 
 
 def callback_front_left_far(data):
-    """msg = Bool()
-    msg.data = is_obstacle(data.range, data.max_range)
-    front_left_far_pub.publish(msg)"""
+    """
+    Get front far-left sonar reading, update global variable to track which sonars detect an obstacle
+    Publish the current knowledge of obstacles as detected by all sonar readings
+
+    :param data: sensor_msgs/Range reading fromt the front far-left sonar
+    """
     global is_clear_front_all
     if is_obstacle(data.range, data.max_range):
         is_clear_front_all = is_clear_front_all | 0b0001
@@ -50,9 +48,12 @@ def callback_front_left_far(data):
 
 
 def callback_front_left_middle(data):
-    """msg = Bool()
-    msg.data = is_obstacle(data.range, data.max_range)
-    front_left_middle_pub.publish(msg)"""
+    """
+    Get front mid-left sonar reading, update global variable to track which sonars detect an obstacle
+    Publish the current knowledge of obstacles as detected by all sonar readings
+
+    :param data: sensor_msgs/Range reading fromt the front mid-left sonar
+    """
     global is_clear_front_all
     if is_obstacle(data.range, data.max_range):
         is_clear_front_all = is_clear_front_all | 0b0010
@@ -62,9 +63,12 @@ def callback_front_left_middle(data):
 
 
 def callback_front_right_middle(data):
-    """msg = Bool()
-    msg.data = is_obstacle(data.range, data.max_range)
-    front_right_middle_pub.publish(msg)"""
+    """
+    Get front mid-right sonar reading, update global variable to track which sonars detect an obstacle
+    Publish the current knowledge of obstacles as detected by all sonar readings
+
+    :param data: sensor_msgs/Range reading fromt the front mid-right sonar
+    """
     global is_clear_front_all
     if is_obstacle(data.range, data.max_range):
         is_clear_front_all = is_clear_front_all | 0b0100
@@ -74,9 +78,12 @@ def callback_front_right_middle(data):
 
 
 def callback_front_right_far(data):
-    """msg = Bool()
-    msg.data = is_obstacle(data.range, data.max_range)
-    front_right_far_pub.publish(msg)"""
+    """
+    Get front far-right sonar reading, update global variable to track which sonars detect an obstacle
+    Publish the current knowledge of obstacles as detected by all sonar readings
+
+    :param data: sensor_msgs/Range reading fromt the front far-right sonar
+    """
     global is_clear_front_all
     if is_obstacle(data.range, data.max_range):
         is_clear_front_all = is_clear_front_all | 0b1000
@@ -91,18 +98,7 @@ if __name__=="__main__":
     front_left_middle_sub = rospy.Subscriber("/prius/front_sonar/left_middle_range", Range, callback_front_left_middle)
     front_right_far_sub = rospy.Subscriber("/prius/front_sonar/right_far_range", Range, callback_front_right_far)
     front_right_middle_sub = rospy.Subscriber("/prius/front_sonar/right_middle_range", Range, callback_front_right_middle)
-
-    """
-    front_left_far_pub = rospy.Publisher("is_clear/front_sonar/left_far", Bool, queue_size=2)
-    front_left_middle_pub = rospy.Publisher("is_clear/front_sonar/left_middle", Bool, queue_size=2)
-    front_right_far_pub = rospy.Publisher("is_clear/front_sonar/right_far", Bool, queue_size=2)
-    front_right_middle_pub = rospy.Publisher("is_clear/front_sonar/right_middle", Bool, queue_size=2)
-    """
-
     is_clear_front_all = 0b1111
-
     obstacle_pub = rospy.Publisher("is_clear/front_sonar/all", Byte, queue_size=2)
-
     threshold = rospy.get_param("/obstacles/threshold", 4)
-
     rospy.spin()
