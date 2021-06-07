@@ -2,8 +2,9 @@
 
 """
 PARAMETERS:
-    obstacles_cv/scale_search (double): rescale value for multiscale detection of pedestrians. Lower value gives more granularity but takes more computational power
+    obstacles_cv/scale_search (float): rescale value for multiscale detection of pedestrians. Lower value gives more granularity but takes more computational power
     obstacles_cv/track_to_detect (int): number of tracking iterations per each successful detection
+    obstacles_cv/tracking_threshold (float): minimum similarity threshold to continue target tracking
 
 PUBLISHES:
     obstacles_cv/image_raw (sensor_msgs/Image): image with bounding boxes for pedestrians
@@ -81,9 +82,10 @@ def track_pedestrians(frame, valid_regions_prev, frame_prev):
         """
         Reference end
         """
-        ii_max = max_loc[0]
-        jj_max = max_loc[1]
-        valid_regions.append((ii_max, jj_max, w, h))
+        if max_val > tracking_threshold:
+            ii_max = max_loc[0]
+            jj_max = max_loc[1]
+            valid_regions.append((ii_max, jj_max, w, h))
     return valid_regions
 
 
@@ -153,6 +155,7 @@ if __name__=="__main__":
     image_sub = rospy.Subscriber("/prius/front_camera/image_raw",Image,callback)
     scale_search = rospy.get_param("/obstacles_cv/scale_search", 1.05)
     track_to_detect = rospy.get_param("/obstacles_cv/track_to_detect", 35)
+    tracking_threshold = rospy.get_param("/obstacles_cv/tracking_threshold", 0.95)
     """
     Reference start:
     https://www.geeksforgeeks.org/pedestrian-detection-using-opencv-python/#:~:text=However%2C%20OpenCV%20has%20a%20built,in%20images%20and%20video%20streams.&text=This%20algorithm%20checks%20directly%20surrounding%20pixels%20of%20every%20single%20pixel

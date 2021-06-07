@@ -13,9 +13,12 @@
 		<uri>model://sun</uri>
 	</include>
 	<include>
-		<uri>model://ground_plane</uri>
-        <color>0 0 0</color>
+		<uri>model://grass_plane</uri>
 	</include>
+    <!--reference: https://github.com/arpg/Gazebo/blob/master/worlds/empty_sky.world-->
+    <scene>
+      
+    </scene>
 
 
     <!--reference: http://gazebosim.org/tutorials?tut=actor&cat=build_robot-->

@@ -276,7 +276,6 @@ if __name__=="__main__":
 
     x_prev = 0
     y_prev = 0
-    # TODO set goal from terminal
     x_goal = None
     y_goal = None
     margin = 7
