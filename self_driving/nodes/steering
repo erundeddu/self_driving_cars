@@ -35,58 +35,85 @@ from std_msgs.msg import Int32MultiArray, Byte
 
 
 def navigation(data):
-    global x_prev, y_prev, x_goal, y_goal, margin, eps, turn_right, is_arrived, correct_intersection_trigger, cond1, cond2
-    x = data.pose.pose.position.x
-    y = data.pose.pose.position.y
-    if x_goal is not None and y_goal is not None:
-        x_dst = x - x_goal
-        y_dst = y - y_goal
-        x_dst_prev = x_prev - x_goal
-        y_dst_prev = y_prev - y_goal
-        x_dot = x - x_prev
-        y_dot = y - y_prev
-        
-        if not in_intersection:
-            cond1 = abs(y_dst_prev) - abs(y_dst) > eps  # getting closer in x
-            cond2 = abs(x_dst_prev) - abs(x_dst) > eps  # getting closer in y
+    """
+    Use information on current and previous poses of car and on goal to reach to determine whether to turn right or go straight at the next intersection
 
-        if not is_braking:
-            if ((abs(x_dst_prev) > margin and abs(x_dst) < margin) or (abs(y_dst_prev) > margin and abs(y_dst) < margin)) and not (abs(x_dst) < margin and abs(y_dst) < margin):  # got in margin zone
+    :param data: nav_msgs/Odometry message containing current pose of the Prius in Gazebo frame
+    """
+    global x_prev, y_prev, turn_right, is_arrived, correct_intersection_trigger, approach_y, approach_x
+    x = data.pose.pose.position.x  # get current x coordinate
+    y = data.pose.pose.position.y  # get current y coordinate
+    if x_goal is not None and y_goal is not None:  # do the following if a goal has been specified by the user
+        x_dst = x - x_goal  # current distance to goal in x direction
+        y_dst = y - y_goal  # current distance to goal in y direction
+        x_dst_prev = x_prev - x_goal  # previous distance to goal in x direction
+        y_dst_prev = y_prev - y_goal  # previous distance to goal in y direction
+        
+        if not in_intersection:  # update only if car is moving straight / is not in an intersection (cannot determine if car is reaching a goal while it is still)
+            approach_y = abs(y_dst_prev) - abs(y_dst) > eps  # switch if the car is getting closer to the goal in y direction
+            approach_x = abs(x_dst_prev) - abs(x_dst) > eps  # switch if the car is getting closer to the goal in x direction
+
+        if not is_braking:  # update only if car is not braking to determine if this is the correct intersection to turn at to be in the right street
+            # intersection trigger is on only if the car just reached about 0 distance from target (distance within margin) in either the x or y directions
+            if ((abs(x_dst_prev) > margin and abs(x_dst) < margin) or (abs(y_dst_prev) > margin and abs(y_dst) < margin)) and not (abs(x_dst) < margin and abs(y_dst) < margin):
                 correct_intersection_trigger = True
-            
+            # if far from goal in both directions, set the trigger back to false
             if abs(x_dst) > margin and abs(y_dst) > margin:
                 correct_intersection_trigger = False
 
-        msg = Byte()
-        # TODO does not work
-        if (cond1 or cond2) and not correct_intersection_trigger:
-            turn_right = False  # do not turn right (go straight)
+        # keep going straight only if the car is getting closer to the goal, unless this is the correct intersection to turn into
+        if (approach_y or approach_x) and not correct_intersection_trigger:
+            turn_right = False  # do not turn right
         else:
             turn_right = True  # turn right
-        if -margin < x_dst < margin and -margin < y_dst < margin and (not cond1) and (not cond2):
+        # the car has arrived to destination if it is within margin of the goal and it is not approaching the goal anymore (stop as soon as the car starts moving away)
+        if -margin < x_dst < margin and -margin < y_dst < margin and (not approach_y) and (not approach_x):
             is_arrived = True
-        #print(str(cond1) + " " + str(cond2) + " " + str(correct_intersection_trigger))
+    # update previous x and y coordinates with new values
     x_prev = x
     y_prev = y
 
+
 def is_clear_sonar_callback(data):
+    """
+    Get detection of obstacles through sonar, update global variable to track which sonars detect an obstacle
+
+    :param data: std_msgs/Byte 4-bit reading whether obstacle is detected by each of the 4 sonars (LSB to MSB: from left to right sonar)
+    """
     global is_clear_all
     is_clear_all = (is_clear_all & 0b10000) | data.data 
 
+
 def is_clear_camera_callback(data):
+    """
+    Get detection of obstacles through camera, update global variable to update state of obstacles in camera image
+
+    :param data: std_msgs/Byte 1-bit reading whether obstacle (pedestrian) is detected in the camera image
+    """
     global is_clear_all
     if data.data:
         is_clear_all = is_clear_all | 0b10000
     else:
         is_clear_all = is_clear_all & 0b01111
 
-def service_callback(req):
-    # change global variable driving_ctrl to enable/disable self driving
+
+def service_drive_callback(req):
+    """
+    Change global variable driving_ctrl to enable or distable self driving
+
+    :param req: self_driving/enable_driving service request
+    """
     global driving_ctrl
     driving_ctrl = req.ctrl
     return []
 
+
 def service_destination_callback(req):
+    """
+    Enable self driving and set a new goal in terms of (x, y) coordinates specified by the user
+
+    :param req: self_driving/destination service request
+    """
     global driving_ctrl, is_arrived, x_goal, y_goal
     driving_ctrl = 1
     is_arrived = 0
@@ -94,7 +121,13 @@ def service_destination_callback(req):
     y_goal = req.y
     return []
 
+
 def service_landmark_callback(req):
+    """
+    Enable self driving and set a new goal in terms of landmark (hardcoded coordinates) specified by the user
+
+    :param req: self_driving/destination_landmark service request
+    """
     global driving_ctrl, is_arrived, x_goal, y_goal
     driving_ctrl = 1
     is_arrived = 0
@@ -113,39 +146,44 @@ def service_landmark_callback(req):
     elif req.landmark == 5:  # suv
         x_goal = 0
         y_goal = 9
-    else:  # invalid landmark code
+    else:  # invalid landmark code, keep the car still
         driving_ctrl = 0
         is_arrived = 1
     return []
 
-def callback(data):
-    # callback to execute when receiving lane values
-    global throttle, brake, steer, gear, stop_acc, after_stop_count, delay_current, iteration, in_intersection, started_turning, center_line_acc, is_braking, correct_intersection_trigger
-    pts_array = []  # array of points
-    types = []  # array of types
+
+def lane_callback(data):
+    """
+    Keeps the car in the right lane, stops at intersections, turns right or goes straight depending on navigation goals
+
+    :param data: my_lanes/vals message containing key points for the lines identified
+    """
+    global brake, steer, gear, stop_acc, after_stop_count, delay_current, iteration, in_intersection, started_turning, center_line_acc, is_braking, correct_intersection_trigger
+    pts_array = []  # array of key points to characterize the lines detected
+    types = []  # array of labels corresponding to the key points, used to identify the type of lines to which the points correspond
     array = data.data  # array of [point, type, point, type, point, type...]
-    intersection_center = None
+    intersection_center = None  # closest perpendicular center line seen at intersection
 
     gear = 2  # put Prius in drive
     brake = 0
     steer = 0
-    if iteration < 4:  # initial throttle to start car
+    if iteration < 4:  # in the first iterations, add some throttle to make the car start moving
         throttle = 0.01
-    else:
+    else:  # otherwise keep the throttle to 0 because the car accelerates quickly
         throttle = 0
         if not iteration % 4:  # brake every x iterations to not gain excessive speed
             brake = 0.1
-    is_braking = False  # if True, Prius is braking
+    is_braking = False  # if True, Prius is braking at an intersection/obstacle
 
     # preprocess subscribed data
-    if array is not None:
+    if array is not None:  # if at least one line was received
         for ii in range(len(array)):
             if not ii%2:  # split data into pts_array and types
                 pts_array.append(array[ii])
             else:
                 types.append(array[ii])
 
-    x_center = None
+    x_center = None  # x-coordinate of the top end of the yellow center line
     if pts_array is not None:
         x_center_acc = 0  # accumulator for x coordinates of center lanes seen
         x_center_num = 0  # number of center lanes seen
@@ -159,8 +197,8 @@ def callback(data):
                 found_stop = True  # a stop was found
             elif types[ii] == 3:  # types = 3: center line seen horizontally
                 if intersection_center is not None:
-                    intersection_center = max(pts_array[ii], intersection_center)  # keep closest intersection center line in case mutliple are detected
-                else:
+                    intersection_center = max(pts_array[ii], intersection_center)  # keep closest intersection center line in case multiple are detected
+                else:  # if this is the first center line seen horizontally in this callback
                     intersection_center = pts_array[ii]
 
         try:  # average all center lines data found, try/except used in case of dividing by zero
@@ -181,53 +219,52 @@ def callback(data):
                     else:  # other loops of braking mode: keep lowering count 
                         after_stop_count -= 1
                         in_intersection = True
-                    stop_acc = 0
+                    stop_acc = 0  # reset accumulator for number of times a stop was seen
                 else:  # keep delaying braking
                     delay_current += 1
                     is_braking = False
             else:
-                # a stop marker was not seen for >= the minimum number of times, car does not brake and stop marker accumulator is zeroed
+                # a stop marker was not seen for >= the minimum number of times, car does not brake and stop marker accumulator is reduced
                 # or after_stop_count = 0 and the car can restart
                 stop_acc = max(0, stop_acc-1)
                 is_braking = False
                 delay_current = 0
         
         msg = Control()
-        
-        # center Prius so that center line is to the left
+        # center the Prius so that center line is to the left
         if x_center is not None and not is_braking:  # if a center lane is received and the car is not braking, center the car
             if x_center < target_low:  # if car is to the right of the target, steer left
                 steer = min(k*abs(x_center-target_low),1)
             elif x_center > target_high:  # if car is to the left of the target, steer right
                 steer = -min(k*abs(x_center-target_high),1)
-            center_line_acc += 1
-            if center_line_acc > 5:
+            center_line_acc += 1  # increase accumulator for center line identification, used to move from intersection to normal driving mode
+            if center_line_acc > 5:  # if enough consecutive center lines have been found, move from intersection to normal driving mode
                 in_intersection = False
                 started_turning = False
-        elif x_center is None:
+        elif x_center is None:  # if not center lines have been found, reset the accumulator
             center_line_acc = 0
 
-        if in_intersection and not is_braking:
+        if in_intersection and not is_braking:  # if car is in an intersection and is restaring after having stopped
             throttle = 0
-            if intersection_center is not None:
-                # implement logic for deciding whether to turn right or keep straight
-                if turn_right:
-                    if intersection_center > intersection_y_threshold:
+            if intersection_center is not None:  # use the perpendicular center line to turn right into the right lane
+                if turn_right:  # turn right only if navigation says so
+                    if intersection_center > intersection_y_threshold:  # turn right when perpendicular center line is close enough
                         steer = -0.9   # right turn
                         #steer = 0.7  # left turn
                         started_turning = True
-                        correct_intersection_trigger = False
-            if started_turning:
+                        correct_intersection_trigger = False  # reset trigger to false, in case this was true and was the reason for the turn
+            if started_turning:  # keep turning
                 steer = -0.9   # right turn
                 #steer = 0.7  # left turn
 
-        if driving_ctrl == 0 or is_arrived or is_clear_all:
+        if driving_ctrl == 0 or is_arrived or is_clear_all:  # if car is stopped through service, if it has arrived to destination, or if there is an obstacle
+            # put car in braking mode
             throttle = 0
             brake = 1
             steer = 0
             iteration = 0
 
-        if is_arrived:
+        if is_arrived:  # if car has arrived to destination, put the car in neutral gear to reduce slipping behavior while user is inputting the new goal
             gear = 1
 
         # assemble message and publish commands to Prius
@@ -241,15 +278,14 @@ def callback(data):
 
 if __name__=="__main__":
     rospy.init_node('steering')
-    sub_lanes = rospy.Subscriber("/my_lanes/vals",Int32MultiArray,callback)
+    sub_lanes = rospy.Subscriber("/my_lanes/vals",Int32MultiArray,lane_callback)
     sub_obstacles = rospy.Subscriber("/is_clear/front_sonar/all",Byte,is_clear_sonar_callback)
     sub_obstacles_cv = rospy.Subscriber("/is_clear/front_camera/all",Byte,is_clear_camera_callback)
-    sub = rospy.Subscriber("/base_pose_ground_truth",Odometry,navigation)
-    s = rospy.Service('enable_driving', enable_driving, service_callback)
+    sub_pose = rospy.Subscriber("/base_pose_ground_truth",Odometry,navigation)
+    s_drive = rospy.Service('enable_driving', enable_driving, service_drive_callback)
     s_destination = rospy.Service('destination', destination, service_destination_callback)
     s_landmark = rospy.Service('destination_landmark', destination_landmark, service_landmark_callback)
-
-    # throttle = rospy.get_param("/steering/throttle", 0.02)
+    pub = rospy.Publisher('prius', Control, queue_size=2)
     k = rospy.get_param("/steering/k", 0.01)
     stop_acc_min = rospy.get_param("/steering/stop_acc_min", 5)
     after_stop_delay = rospy.get_param("/steering/after_stop_delay", 30)
@@ -260,32 +296,32 @@ if __name__=="__main__":
     # initial state of the prius
     brake = 0
     steer = 0
-    gear = 3
+    gear = 3 
 
     # global variables
-    driving_ctrl = 0  # 0 = brake; 1 = self driving
+    driving_ctrl = 0  # 0 = brake; 1 = self driving, modified through services
     stop_acc = 0  # accumulation of consecutive times a red stop marker was seen
-    after_stop_count = 0  # count since braking on
+    after_stop_count = 0  # count since braking was on
     delay_current = 0  # count since a red stop marker was not seen anymore
-    iteration = 0  # need to activate throttle initially
-    in_intersection = False  # True if car is in the intersection
-    started_turning = False
-    center_line_acc = 0
-    #is_clear_all = 0b1111  # from lsb to msb: left to right sonars (1: obstacle is currently detected), camera
-    is_clear_all = 0
+    iteration = 0  # loop count used to activate throttle initially for a set number of times
+    in_intersection = False  # if True: car is in the intersection (has seen the stop marker)
+    started_turning = False  # if True: car has started turning right at the intersection
+    center_line_acc = 0  # accumulation of consecutive times a perpendicular center line was seen (used at intersections)
+    is_clear_all = 0  # signals presence of obstacles if not zero, this variable is changed by obstacles and obstacles_cv nodes
+    # is_clear_all from LSB to MSB (5-bits): left to right sonars, pedestrians in camera
+    x_prev = 0  # x pose of the car at the previous loop
+    y_prev = 0  # y pose of the car at the previous loop
+    x_goal = None  # x pose of the goal towards which the car should navigate, modified through services
+    y_goal = None  # y pose of the goal towards which the car should navigate, modified through services
+    turn_right = True  # if True: the car should turn right at the next intersection
+    is_arrived = False  # if True: the car has arrived to its goal location
+    correct_intersection_trigger = False  # if True: the following intersection is the one where the car should turn to reach the goal
+    is_braking = False  # if True: car has started braking 
+    approach_y = False  # if True: car is approaching goal in y direction
+    approach_x = False  # if True: car is approaching goal in x direction
 
-    x_prev = 0
-    y_prev = 0
-    x_goal = None
-    y_goal = None
+    # TODO: rosparams
     margin = 7
     eps = 0.002
-    turn_right = True
-    is_arrived = False
-    correct_intersection_trigger = False
-    is_braking = False
-    cond1 = False
-    cond2 = False
     
-    pub = rospy.Publisher('prius', Control, queue_size=2)
     rospy.spin()
