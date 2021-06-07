@@ -1,16 +1,5 @@
 <?xml version="1.0"?>
 <launch>
-    <arg name="display_processed_image" default="true" doc="if true, the processed image is displayed"/>
     <param name="obstacles/threshold" value="4"/>
-    <param name="obstacles_cv/scale_search" value="1.1"/>
-    <param name="obstacles_cv/track_to_detect" value="25"/>
-    <param name="obstacles_cv/tracking_threshold" value="0.95"/>
     <node pkg="self_driving" type="obstacles" name="obstacles" output="screen"/>
-    <node pkg="self_driving" type="obstacles_cv" name="obstacles_cv" output="screen"/>
-    <group if="$(arg display_processed_image)">
-		<node name="image_view_obstacles" pkg="image_view" type="image_view">
-            <param name="~autosize" value="true"/>
-            <remap from="image" to="obstacles_cv/image_raw"/>
-        </node>
-	</group>
 </launch>

@@ -15,12 +15,7 @@
 	<include>
 		<uri>model://grass_plane</uri>
 	</include>
-    <!--reference: https://github.com/arpg/Gazebo/blob/master/worlds/empty_sky.world-->
-    <scene>
-      
-    </scene>
-
-
+    
     <!--reference: http://gazebosim.org/tutorials?tut=actor&cat=build_robot-->
 
     <actor name="actor_1">

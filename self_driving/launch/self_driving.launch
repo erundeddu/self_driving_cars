@@ -2,14 +2,15 @@
 <launch>
 	<include file="$(find streets_gazebo)/launch/prius_world.launch"/>
 	<include file="$(find self_driving)/launch/lane_detect.launch"/>	
-    <arg name="follow_lanes" default="true" doc="if true, automatic lane following, else teleop" />
+    <arg name="follow_lanes" default="true" doc="if true, automatic lane following, else teleop"/>
+    <arg name="pedestrians_img_detect" default="false" doc="if true, also use vision to detect pedestrians"/>
 	
 	<group if="$(arg follow_lanes)">
 		<include file="$(find self_driving)/launch/steering.launch"/>
 	</group>
-    <!--group unless="$(arg follow_lanes)">
-		<include file="$(find prius_teleop)/launch/prius_teleop.launch"/>
-	</group-->
 
     <include file="$(find self_driving)/launch/obstacles.launch"/>
+    <group if="$(arg pedestrians_img_detect)">
+		<include file="$(find self_driving)/launch/obstacles_cv.launch"/>
+	</group>
 </launch>
