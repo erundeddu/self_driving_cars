@@ -7,5 +7,12 @@
     <param name="steering/target_high" value="300"/>
     <param name="steering/after_stop_delay" value="10"/>
     <param name="steering/intersection_y_threshold" value="530"/>
+    <param name="steering/margin" value="7"/>
+    <param name="steering/eps" value="0.002"/>
+    <param name="steering/center_line_acc_min" value="5"/>
+    <param name="steering/right_turn_steer" value="0.9"/>
+    <param name="steering/max_braking_delay" value="20"/>
+    <param name="steering/periodic_braking_period" value="4"/>
+    <param name="steering/periodic_braking_magnitude" value="0.1"/>
     <node pkg="self_driving" type="steering" name="steering" output="screen"/>
 </launch>

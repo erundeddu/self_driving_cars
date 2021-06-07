@@ -2,12 +2,19 @@
 
 """
 PARAMETERS:
-    /steering/k (double): proportional steering gain to align car to have center line on the left
+    /steering/k (float): proportional steering gain to align car to have center line on the left
     /steering/stop_acc_min (int): number of consecutive times a horizontal stop marker has to be identified to be considered
     /steering/after_stop_delay (int): number of loops that the car is still after braking
     /steering/target_low (int): lower target threshold for x-coordinate of the upper end of the center line
     /steering/target_high (int): upper target threshold for x-coordinate of the upper end of the center line
     /steering/intersection_y_threshold (int): turn right when the intersection perpendicular center line is at image coord y > this value
+    /steering/margin (float): maximum distance to target in x or y direction to consider the car in the right street
+    /steering/eps (float): minimum decrease in distance to target in x or y direction between consecutive pose readings to consider the car as approaching the target
+    /steering/center_line_acc_min (int): number of consecutive times a center line has to be identified to move from intersection mode to lane following mode
+    /steering/right_turn_steer (float): magnitude of the steer (0-1) used to turn right at an intersection
+    /steering/max_braking_delay (int): maximum number of loops the car will wait to brake after identifying a stop line
+    /steering/periodic_braking_period (int): number of consecutive loops out of which the car will apply the brakes once when moving straight, to avoid excessive acceleration
+    /steering/periodic_braking_magnitude (float): magnitude of the brake (0-1) when braking periodically
 
 PUBLISHES:
     prius (prius_msgs/Control): throttle, braking, steering and gear to control Prius
@@ -171,8 +178,8 @@ def lane_callback(data):
         throttle = 0.01
     else:  # otherwise keep the throttle to 0 because the car accelerates quickly
         throttle = 0
-        if not iteration % 4:  # brake every x iterations to not gain excessive speed
-            brake = 0.1
+        if not iteration % int(periodic_braking_period):  # brake every x iterations to not gain excessive speed
+            brake = periodic_braking_magnitude
     is_braking = False  # if True, Prius is braking at an intersection/obstacle
 
     # preprocess subscribed data
@@ -209,7 +216,7 @@ def lane_callback(data):
         if not found_stop:  # if a stop was not found, then zero/reduce all accumulators or prepare to stop
             if (stop_acc >= stop_acc_min or after_stop_count > 0):  # if a stop marker was seen previously for >= the minimum number of times or the car is waiting after having started braking
                 # if stop marker was seen for many consecutive times then car was going slow, wait longer to stop to stop with the wheels at the marker
-                if delay_current > min(stop_acc - stop_acc_min, 20)-2:
+                if delay_current > min(stop_acc - stop_acc_min, max_braking_delay)-2:
                     is_braking = True  # car is in braking mode
                     throttle = 0
                     brake = 1
@@ -238,7 +245,7 @@ def lane_callback(data):
             elif x_center > target_high:  # if car is to the left of the target, steer right
                 steer = -min(k*abs(x_center-target_high),1)
             center_line_acc += 1  # increase accumulator for center line identification, used to move from intersection to normal driving mode
-            if center_line_acc > 5:  # if enough consecutive center lines have been found, move from intersection to normal driving mode
+            if center_line_acc > center_line_acc_min:  # if enough consecutive center lines have been found, move from intersection to normal driving mode
                 in_intersection = False
                 started_turning = False
         elif x_center is None:  # if not center lines have been found, reset the accumulator
@@ -249,12 +256,12 @@ def lane_callback(data):
             if intersection_center is not None:  # use the perpendicular center line to turn right into the right lane
                 if turn_right:  # turn right only if navigation says so
                     if intersection_center > intersection_y_threshold:  # turn right when perpendicular center line is close enough
-                        steer = -0.9   # right turn
+                        steer = -right_turn_steer   # right turn
                         #steer = 0.7  # left turn
                         started_turning = True
                         correct_intersection_trigger = False  # reset trigger to false, in case this was true and was the reason for the turn
             if started_turning:  # keep turning
-                steer = -0.9   # right turn
+                steer = -right_turn_steer   # right turn
                 #steer = 0.7  # left turn
 
         if driving_ctrl == 0 or is_arrived or is_clear_all:  # if car is stopped through service, if it has arrived to destination, or if there is an obstacle
@@ -292,6 +299,13 @@ if __name__=="__main__":
     target_low = rospy.get_param("/steering/target_low", 280)
     target_high = rospy.get_param("/steering/target_high", 300)
     intersection_y_threshold = rospy.get_param("/steering/intersection_y_threshold", 530)
+    margin = rospy.get_param("/steering/margin", 7)
+    eps = rospy.get_param("/steering/eps", 0.002)
+    center_line_acc_min = rospy.get_param("/steering/center_line_acc_min", 5)
+    right_turn_steer = rospy.get_param("/steering/right_turn_steer", 0.9)
+    max_braking_delay = rospy.get_param("/steering/max_braking_delay", 20)
+    periodic_braking_period = rospy.get_param("/steering/periodic_braking_period", 4)
+    periodic_braking_magnitude = rospy.get_param("/steering/periodic_braking_magnitude", 0.1)
 
     # initial state of the prius
     brake = 0
@@ -319,9 +333,5 @@ if __name__=="__main__":
     is_braking = False  # if True: car has started braking 
     approach_y = False  # if True: car is approaching goal in y direction
     approach_x = False  # if True: car is approaching goal in x direction
-
-    # TODO: rosparams
-    margin = 7
-    eps = 0.002
     
     rospy.spin()
