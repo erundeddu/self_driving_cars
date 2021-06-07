@@ -23,11 +23,16 @@ from std_msgs.msg import Byte
 
 
 def is_obstacle(data_range, max_range):
-    local_threshold = threshold
-    if local_threshold > max_range:
-        local_threshold = max_range
+    """
+    Evaluate if an obstacle is being sensed based on a sonar reading and the obstacle threshold applied
+
+    :param data_range: reading from the sonar in [m]
+    :param max_range: maximum reading from the sonar in [m]
+    :return: if reading is below threshold, return True, otherwise return False
+    """
+    local_threshold = min(threshold, max_range)  # max_range is the maximum threshold that is possible
     if data_range < local_threshold:
-        return True
+        return True  # obstacle is detected
     else:
         return False
 
