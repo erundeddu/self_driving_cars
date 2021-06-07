@@ -4,7 +4,7 @@
 PARAMETERS:
     /lanes/hough_threshold (int): minimum voting threshold in Hough space to recognize a line
     /lanes/min_line_length (int): minimum length of a line to be reported
-    /lanes/max_line_gap (int): gap between lines to be considered separate
+    /lanes/max_line_gap (int): gap between lines for them to be considered separate
     /lanes/lane_rect (int): half the length in the direction perpendicular to the recognized line to draw a ROI for color detection
     /lanes/min_red_threshold (int): minimum threshold of presence of red pixels to recognize a stop marker
     /lanes/min_yellow_threshold (int): minimum threshold of presence of yellow pixels to recognize a center line
@@ -12,6 +12,10 @@ PARAMETERS:
     /lanes/max_hue_red (int): maximum hue value (after 0) for red
     /lanes/min_hue_yellow (int): minimum hue value for yellow
     /lanes/max_hue_yellow (int): maximum hue value for yellow
+    /lanes/min_vertical_slope (float): minimum magnitude (absolute value) of the slope of a line for it to be labeled as vertical
+    /lanes/max_horizontal_slope (float): maximum magnitude (absolute value) of the slope of a line for it to be labeled as horizontal
+    /lanes/same_horizontal_line_gap (int): maximum vertical distance (in pixels) for two horizontal lines to be treated as one
+    /lanes/same_vertical_line_gap (int): maximum horizontal distance (in pixels) for two vertical lines to be treated as one
 
 PUBLISHES:
     my_lanes/image_raw (sensor_msgs/Image): Image showing the lanes and stop markers recognized
@@ -24,7 +28,7 @@ SERVICES:
 
 """
 
-# the initial structure for this file references https://github.com/rslim087a/Self-Driving-Car-Course-Codes
+# the initial structure for this node (use of Hough Transforms, classifying lines by slope, averaging neighbor lines) takes inspiration from https://github.com/rslim087a/Self-Driving-Car-Course-Codes/tree/master/Section%205%20Resources%20(Finding%20Lanes)/Source%20Code
 
 import rospy
 import cv2
@@ -35,10 +39,14 @@ from cv_bridge import CvBridge, CvBridgeError
 
 
 def make_points(image, line):
-    # image: opencv image
-    # line: a slope, intercept tuple
-    # returns coordinates of start and end points of the line, using different methods depending on the slope of the line
-    slope, intercept = line
+    """
+    Converts a slope-intercept description of a line into a 2 end-points description, using different methods depending on the slope of the line
+
+    :param image: the opencv image from which lines are extracted
+    :param line: a (slope, intercept) tuple defining a line on the image
+    :return: a list in a list containing x and y coordinates of end point 1, x and y coordinates of end point 2
+    """
+   slope, intercept = line
     if abs(slope) > 0.2:  # lines that are more vertical fix y coords and find x coords
         y1 = int(image.shape[0])  # bottom of the image
         y2 = int(y1*3/5)         # slightly lower than the middle
@@ -53,8 +61,12 @@ def make_points(image, line):
 
 
 def canny(img):
-    # img: opencv image
-    # returns the edges extracted from img using canny edge detector
+    """
+    Applies Canny edge detector to an opencv image and returns the image of edges
+
+    :param img: an opencv image
+    :return: an opencv image of edges extracted using Canny edge detector
+    """
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)  # convert image to grayscale
     kernel = 5  # size of filter for gaussian blur
     blur = cv2.GaussianBlur(img,(kernel, kernel),2)  # blur image to avoid finding edges due to noise
@@ -62,12 +74,16 @@ def canny(img):
     return canny
 
 
-def display_lines(img,lines,types):
-    # img: opencv image
-    # lines: a list of lists, where each sublist contains end x and y coordinates to plot a line
-    # types: a list of integers of same length as lines, where each entry denotes the type of the corresponding line (a center line, a side line, a stop marker)
-    # returns an image of the same size as img that plots the lines in different colors depending on their types
-    line_image = np.zeros_like(img)
+def display_lines(img, lines, types):
+    """
+    Applies Canny edge detector to an opencv image and returns the image of edges
+
+    :param img: an opencv image
+    :param lines: a list of lines, each defined by a list containing x and y coordinates of the first and second endpoints ([[x1, y1, x2, y2]])
+    :param types: a list of integers of same length as lines, where each entry labels the type of the corresponding line (a center line, a side line, a stop marker...)
+    :return: an opencv image of the same size as img that plot the lines in different colors depending on their types
+    """
+    line_image = np.zeros_like(img)  # create blank image
     count = 0
     if lines is not None:
         for line in lines:
@@ -76,21 +92,24 @@ def display_lines(img,lines,types):
                     cv2.line(line_image,(x1,y1),(x2,y2),(0,255,255),10)
                 elif types[count] == 2:  # 2 is stop marker, shown in red
                     cv2.line(line_image,(x1,y1),(x2,y2),(0,0,255),10)
-                elif types[count] == 0:  # side line, show in blue
+                elif types[count] == 0:  # side line, shown in blue
                     cv2.line(line_image,(x1,y1),(x2,y2),(255,0,0),10)
-                elif types[count] == 3:
+                elif types[count] == 3:  # 3 is center line when seen horizontally (at an intersection), shown in orange
                     cv2.line(line_image,(x1,y1),(x2,y2),(0,128,255),10)
             count += 1
     return line_image
 
 
 def region_of_interest(img):
-    # img: an opencv image
-    # returns a version of img where all pixels outside of the region of interest are set to 0
-    # region of interest is hardcoded in this function
+    """
+    Crops the opencv image from the front camera of the car to discard irrelevant top and bottom regions
+
+    :param img: an opencv image
+    :return: a modified version of img where all pixels outside of the region of interest are set to 0
+    """
     height = img.shape[0]
     width = img.shape[1]
-    mask = np.zeros_like(img)
+    mask = np.zeros_like(img)  # create blank image
     # this region of interest was fine tuned so that it discards bottom parts of the image that come from the front of the car and top parts of the image that are not relevant
     trapz = np.array([[ 
     (0, 109*height//160),
@@ -104,48 +123,52 @@ def region_of_interest(img):
 
 
 def average_slope_intercept(image, lines):
-    # TODO: comment this function
-    candidate_stop_lines = []  # a list of approximately horizontal lines (slope, intercept), some of which may correspond to the stop markers
-    filtered_lines = []  # a list of more vertical lines (slope, intercept) that correspond to the center and side lane-divider lines
+    """
+    Filters detected lines into more vertical and more horizontal lines, eliminating lines that would not correspond to lane lines
+    Averages lines that are similar to each other into a single line
+
+    :param image: an opencv image from which lines were identified
+    :param lines: a list of lines, each defined by a list containing x and y coordinates of the first and second endpoints ([[x1, y1, x2, y2]])
+    :return: a list of more vertical lines and a list of more horizontal lines, where adjacent lines have been averaged into a single line
+    """
+    horizontal_lines = []  # a list of approximately horizontal lines (slope, intercept), some of which may correspond to the stop markers
+    vertical_lines = []  # a list of more vertical lines (slope, intercept) that correspond to the center and side lane-divider lines
     # divide all lines between the two lists above depending on their slope
     for line in lines:
         for x1, y1, x2, y2 in line:
+            # filter all lines depending on slope
             fit = np.polyfit((x1,x2), (y1,y2), 1)
             slope = fit[0]
             intercept = fit[1]
-            if abs(slope) > 0.7:  # more vertical line
-                filtered_lines.append((slope, intercept))
-            elif abs(slope) < 0.15:  # more horizontal line
-                candidate_stop_lines.append((slope, intercept))
-    avg_lines = []
-    # parameters
-    d_slope = 15*3.14159/180
-    d_inter = 100
-    d_x = 10
-    for line in filtered_lines:
-        did_append = False
-        for sub_list in avg_lines:
+            if abs(slope) > min_vertical_slope:  # more vertical lines
+                vertical_lines.append((slope, intercept))
+            elif abs(slope) < max_horizontal_slope:  # more horizontal lines
+                horizontal_lines.append((slope, intercept))
+    avg_vertical_lines = []  # list to include averaged vertical lines
+    for line in vertical_lines:
+        did_append = False  # if True: line was found to be similar to another line already included in the averaged lines list
+        for sub_list in avg_vertical_lines:  # each sublist contains a cluster of lines found to be similar and to be averaged later
             for compare_line in sub_list:
                 y = int((image.shape[0])*3/5)
                 slope_cp = compare_line[0]
                 intercept_cp = compare_line[1]
                 slope_ln = line[0]
                 intercept_ln = line[1]
+                # compare the two top x coordinates (in a prospective view, these are similar for adjacent lines)
                 x_cp = int((y - intercept_cp)/slope_cp)
                 x_ln = int((y - intercept_ln)/slope_ln)
-                if abs(x_cp - x_ln) > d_x:
+                if abs(x_cp - x_ln) > d_x:  # if the lines are not similar (x coordinates are too far), end loop
                     break
-            else:
+            else:  # if loop was never broken, the lines are similar: append the new line in the compared sublist
                 sub_list.append(line)
                 did_append = True
-        if not did_append:
-            avg_lines.append([line])
+        if not did_append:  # if the new line is not similar to any line, append it as a separate entry
+            avg_vertical_lines.append([line])
     
-    avg_stop_lines = []
-    d_y = 30
-    for line in candidate_stop_lines:
-        did_append = False
-        for sub_list in avg_stop_lines:
+    avg_horizontal_lines = []  # list to include averaged horizontal lines
+    for line in horizontal_lines:
+        did_append = False  # if True: line was found to be similar to another line already included in the averaged lines list
+        for sub_list in avg_horizontal_lines:  # each sublist contains a cluster of lines found to be similar and to be averaged later
             for compare_line in sub_list:
                 x1 = 0         
                 x2 = image.shape[1]
@@ -153,41 +176,46 @@ def average_slope_intercept(image, lines):
                 intercept_cp = compare_line[1]
                 slope_ln = line[0]
                 intercept_ln = line[1]
+                # compare the y coordinates at the two end points
                 y_cp_1 = int(intercept_cp + slope_cp*x1)
                 y_cp_2 = int(intercept_cp + slope_cp*x2)
                 y_ln_1 = int(intercept_ln + slope_cp*x1)
                 y_ln_2 = int(intercept_ln + slope_cp*x2)
-                if abs(y_cp_1 - y_ln_1) > d_y or abs(y_cp_2 - y_ln_2) > d_y:
+                if abs(y_cp_1 - y_ln_1) > d_y or abs(y_cp_2 - y_ln_2) > d_y:    # if the lines are not similar (y coordinates are too far), end loop
                     break
-            else:
+            else:  # if loop was never broken, the lines are similar: append the new line in the compared sublist
                 sub_list.append(line)
                 did_append = True
-        if not did_append:
-            avg_stop_lines.append([line])
-
-    avg_lines_out = []
-    stop_lines_out = []
-    for sub_list in avg_lines:
+        if not did_append:  # if the new line is not similar to any line, append it as a separate entry
+            avg_horizontal_lines.append([line])
+    avg_horizontal_lines_out = []  # output list for averaged horizontal lines
+    avg_vertical_lines_out = []  # output list for averaged horizontal lines
+    # go through each similar lines cluster and average them into a line (if just one line, the average will return the line itself)
+    for sub_list in avg_vertical_lines:
         fit_average = np.average(sub_list, axis=0)
-        line = make_points(image, fit_average)
-        avg_lines_out.append(line)
-    for sub_list in avg_stop_lines:
+        line = make_points(image, fit_average)  # output line as [[x1,y1,x2,y2]]
+        avg_vertical_lines_out.append(line)
+    for sub_list in avg_horizontal_lines:
         fit_average = np.average(sub_list, axis=0)
-        line = make_points(image, fit_average)
-        stop_lines_out.append(line)
-    return avg_lines_out, stop_lines_out
+        line = make_points(image, fit_average)  # output line as [[x1,y1,x2,y2]]
+        avg_horizontal_lines_out.append(line)
+    return avg_vertical_lines_out, avg_horizontal_lines_out
 
 
 def determine_line_type(img, ln, trapz_type, color_low_1, color_high_1, color_threshold, color_low_2=None, color_high_2=None):
-    # img: an opencv image
-    # ln: a line defined by [[x1, y1, x2, y2]] end points
-    # trapz_type: a switch to use different ROI around the line depending on whether the line is more vertical or horizontal
-    # color_low_1: [H, S, V] lower limit 1
-    # color_high_1: [H, S, V] upper limit 1
-    # color_threshold: if there are more pixels in the desired color range than this number, return True
-    # color_low_2: [H, S, V] lower limit 2 (to be used if H is wrapping around 0)
-    # color_high_2: [H, S, V] upper limit 2 (to be used if H is wrapping around 0)
-    # return True if line is made up of enough pixels in the color ranges provided, False otherwise
+    """
+    Determines if a line identified contains at least a threshold number of pixels in the color ranges provided
+
+    :param img: an opencv image
+    :param ln: a line defined by a nested list containing x and y coordinates of the first and second endpoints ([[x1, y1, x2, y2]])
+    :param trapz_type: a switch to use different region of interest around the line depending on the type of the line
+    :param color_low_1: color threshold in the HSV space ([H, S, V]) for the first lower limit
+    :param color_high_1: color threshold in the HSV space ([H, S, V]) for the first upper limit
+    :param color_threshold: if there are more pixels in the desired color range than this number, return True
+    :param color_low_2: color threshold in the HSV space ([H, S, V]) for the second lower limit (to be used if Hue is wrapping around 0)
+    :param color_high_2: color threshold in the HSV space ([H, S, V]) for the second upper limit (to be used if Hue is wrapping around 0)
+    :return: True if the line is made up of enough pixels in the color ranges provided, False otherwise
+    """
     height = img.shape[0]
     width = img.shape[1]
     mask = np.zeros_like(img)
@@ -209,7 +237,7 @@ def determine_line_type(img, ln, trapz_type, color_low_1, color_high_1, color_th
             (pts[0], min(pts[3]+lane_rect,height)),]]], np.int32)
 
     elif trapz_type == 2:
-        # for horizontal stop lines
+        # for horizontal stop lines, crop the sides of the line to avoid picking up pixels from a stop marker on the left for opposite direction traffic
         trapz = np.array([[[
             (pts[0]+170, max(pts[1]-lane_rect,0)),
             (pts[2]-170, max(pts[1]-lane_rect,0)),
@@ -234,55 +262,57 @@ def determine_line_type(img, ln, trapz_type, color_low_1, color_high_1, color_th
 
 
 def callback(data):
-    # process incoming image, find and publish lines
+    """
+    Processes incoming image from the front camera of the Prius to detect lines of interest; publishes key points of the lines identifies
+
+    :param data: sensor_msgs/Image message from the front camera of the Prius
+    """
     try:
-        cv_image = bridge.imgmsg_to_cv2(data, "bgr8")
+        cv_image = bridge.imgmsg_to_cv2(data, "bgr8")  # convert ROS image to opencv image
     except CvBridgeError as e:
         print(e)
     (rows,cols,channels) = cv_image.shape
-    canny_image = canny(cv_image)
-    cropped_canny = region_of_interest(canny_image)
-    lines = cv2.HoughLinesP(cropped_canny, 2, np.pi/180, hough_threshold, np.array([]), minLineLength=min_line_length,maxLineGap=max_line_gap)
-    if lines is not None:
-        averaged_lines, stops = average_slope_intercept(cv_image, lines)
-        types = []
+    canny_image = canny(cv_image)  # apply Canny edge detector
+    cropped_canny = region_of_interest(canny_image)  # crop image to throw away top and bottom regions (sky and front of the car)
+    lines = cv2.HoughLinesP(cropped_canny, 2, np.pi/180, hough_threshold, np.array([]), minLineLength=min_line_length,maxLineGap=max_line_gap)  # extract lines
+    if lines is not None:  # do the following if at least one line was extracted
+        averaged_lines, stops = average_slope_intercept(cv_image, lines)  # classification and merging of lines
+        types = []  # list to label each line to be published
         for ln in averaged_lines:  # for vertical lines, divide between central (yellow) and side lines
             if determine_line_type(cv_image, ln, 0, low_yellow, high_yellow, min_yellow_threshold):
-                types.append(1)
+                types.append(1)  # if line has yellow pixels: center line
             else:
-                types.append(0)
+                types.append(0)  # if line does not have yellow pixels: side line
         for ln in stops:  # for horizontal lines, find the stop markers
             if determine_line_type(cv_image, ln, 2, low_red_1, high_red_1, min_red_threshold, low_red_2, high_red_2):
-                types.append(2)
+                types.append(2)  # if line has red pixels: stop marker
                 averaged_lines.append(ln)
             elif determine_line_type(cv_image, ln, 1, low_yellow, high_yellow, 3*min_yellow_threshold):
-                types.append(3)
+                types.append(3)  # if line has yellow pixels: horizontal center line
                 averaged_lines.append(ln)
-        line_image = display_lines(cv_image, averaged_lines, types)
-        combined_image = cv2.addWeighted(cv_image, 0.8, line_image, 1, 1)
-        lane_data = Int32MultiArray()
-        lane_data_array = []
+        line_image = display_lines(cv_image, averaged_lines, types)  # display the identified lines in different color on a blank image
+        combined_image = cv2.addWeighted(cv_image, 0.8, line_image, 1, 1)  # superimpose lines to original image
+        lane_data = Int32MultiArray()  # message to be published 
+        lane_data_array = []  # contains each line summarized by a key point
         for ii in range(len(types)):
-            if types[ii] == 0 or types[ii] == 1:  
+            if types[ii] == 0 or types[ii] == 1:  # for vertical lines, append top x coordinate
                 lane_data_array.append(averaged_lines[ii][0][2])
-            else:  # for stop markers, append y coord
+            else:  # for horizontal lines, append a y coordinate
                 lane_data_array.append(averaged_lines[ii][0][1])
-            lane_data_array.append(types[ii])  # after the coord, append the type of the line
+            lane_data_array.append(types[ii])  # after the coordinate, append the type of the line
         lane_data.data = lane_data_array
         lanes_pub.publish(lane_data)
     else:  # if no lines detected
         combined_image = cv_image
-
-    # resize
+    # resize the combined image for ease of visualization
     original_width = combined_image.shape[1]
     new_width = min(400, combined_image.shape[1])
     scale = new_width/original_width
     new_height = int(combined_image.shape[0]*scale)
     dim = (new_width, new_height)
     combined_image = cv2.resize(combined_image, dim, interpolation=cv2.INTER_AREA)
-
     try:
-        image_pub.publish(bridge.cv2_to_imgmsg(combined_image, "bgr8"))  # convert to ros image and publish
+        image_pub.publish(bridge.cv2_to_imgmsg(combined_image, "bgr8"))  # convert from opencv image to ROS image and publish
     except CvBridgeError as e:
         print(e)
 
@@ -304,6 +334,10 @@ if __name__=="__main__":
     max_hue_red = rospy.get_param("lanes/max_hue_red", 10)
     min_hue_yellow = rospy.get_param("lanes/min_hue_yellow", 25)
     max_hue_yellow = rospy.get_param("lanes/max_hue_yellow", 40)
+    min_vertical_slope = rospy.get_param("lanes/min_vertical_slope", 0.7)
+    max_horizontal_slope = rospy.get_param("lanes/max_horizontal_slope", 0.15)
+    d_x = rospy.get_param("lanes/same_vertical_line_gap", 10)
+    d_y = rospy.get_param("lanes/same_horizontal_line_gap", 30)
 
     low_yellow = np.array([min_hue_yellow, 150, 64])
     high_yellow = np.array([max_hue_yellow, 255, 255])

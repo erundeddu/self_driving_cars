@@ -11,6 +11,10 @@
     <param name="/lanes/max_hue_red" value="10"/>
     <param name="/lanes/min_hue_yellow" value="25"/>
     <param name="/lanes/max_hue_yellow" value="40"/>
+    <param name="/lanes/min_vertical_slope" value="0.7"/>
+    <param name="/lanes/max_horizontal_slope" value="0.15"/>
+    <param name="/lanes/same_vertical_line_gap" value="10"/>
+    <param name="/lanes/same_horizontal_line_gap" value="30"/>
     <node pkg="self_driving" type="lanes" name="lanes"/>
     <group if="$(arg display_processed_image)">
 		<node name="image_view" pkg="image_view" type="image_view">
