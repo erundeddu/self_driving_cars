@@ -28,7 +28,11 @@ SERVICES:
 
 """
 
-# the initial structure for this node (use of Hough Transforms, classifying lines by slope, averaging neighbor lines) takes inspiration from https://github.com/rslim087a/Self-Driving-Car-Course-Codes/tree/master/Section%205%20Resources%20(Finding%20Lanes)/Source%20Code
+"""
+The initial structure for this node (use of Hough Transforms, classifying lines by slope, averaging neighbor lines) takes inspiration from 
+https://github.com/rslim087a/Self-Driving-Car-Course-Codes/tree/master/Section%205%20Resources%20(Finding%20Lanes)/Source%20Code
+Accessed on May 18, 2021
+"""
 
 import rospy
 import cv2

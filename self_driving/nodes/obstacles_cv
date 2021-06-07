@@ -2,12 +2,12 @@
 
 """
 PARAMETERS:
-    obstacles_cv/scale_search (double): rescale value for multiscale detection of pedestrians. Lower value gives more granularity but takes longer
-    obstacles_cv/track_to_detect (int): number of tracking iterations per successful detection
+    obstacles_cv/scale_search (double): rescale value for multiscale detection of pedestrians. Lower value gives more granularity but takes more computational power
+    obstacles_cv/track_to_detect (int): number of tracking iterations per each successful detection
 
 PUBLISHES:
     obstacles_cv/image_raw (sensor_msgs/Image): image with bounding boxes for pedestrians
-    is_clear/front_camera/all (std_msgs/Byte): if 0 is clear, else a pedestrian is detected
+    is_clear/front_camera/all (std_msgs/Byte): if 0, front of the car is clear, else a pedestrian is detected
 
 SUBSCRIBES:
     prius/front_camera/image_raw (sensor_msgs/Image): Image from the front camera of the Prius
@@ -17,46 +17,70 @@ SERVICES:
 """
 
 import rospy
-
 from sensor_msgs.msg import Image
 from std_msgs.msg import Byte
 import cv2
 import numpy as np
 from cv_bridge import CvBridge, CvBridgeError
-import time
-
-# this code comes from https://www.geeksforgeeks.org/pedestrian-detection-using-opencv-python/#:~:text=However%2C%20OpenCV%20has%20a%20built,in%20images%20and%20video%20streams.&text=This%20algorithm%20checks%20directly%20surrounding%20pixels%20of%20every%20single%20pixel.
 
 
 def detect_pedestrians(frame):
+    """
+    Applies opencv hog model to detect pedestrians in an image
+
+    :param frame: an opencv image
+    :return: a list of regions corresponding to detected pedestrians, each expressed by the tuple (x coordinate, y coordinate, width of region, height of region)
+    :return: a list of regions corresponding to detected pedestrians that were filtered out
+    """
+
+    """
+    Reference start:
+    https://www.geeksforgeeks.org/pedestrian-detection-using-opencv-python/#:~:text=However%2C%20OpenCV%20has%20a%20built,in%20images%20and%20video%20streams.&text=This%20algorithm%20checks%20directly%20surrounding%20pixels%20of%20every%20single%20pixel
+    Accessed June 1, 2021
+    """   
     # Detecting all the regions in the Image with a pedestrian
     (regions, weights) = hog.detectMultiScale(frame, 
                                         winStride=(4, 4),
                                         padding=(4, 4),
                                         scale=scale_search)
-    valid_regions = []
-    invalid_regions = []
-    for (x, y, w, h) in regions:  # some filtering to avoid false positives at the sides 
-        if y+h/2 > 2*frame.shape[0]/5:   # new_width/5 < x+w/2 < 4*new_width/5 and
+    """
+    Reference end
+    """
+    valid_regions = []  # detected regions to be kept
+    invalid_regions = []  # detected regions to be filtered out
+    for (x, y, w, h) in regions:  # some filtering to avoid false positives in regions not of interest
+        if y+h/2 > 2*frame.shape[0]/5:  # only keep detections in the lower three-fifths of the image
             valid_regions.append((x, y, w, h))
         else:
-            invalid_regions.append((x, y, w, h))  # for visualization only
-    return valid_regions, invalid_regions
+            invalid_regions.append((x, y, w, h)) 
+    return valid_regions, invalid_regions  # also return invalid_regions to test and visualize the output of the detection step
 
 
 def track_pedestrians(frame, valid_regions_prev, frame_prev):
-    valid_regions_new = list()
+    """
+    Performs template matching between pedestrians identified in a previous frame and the current frame
 
-    frame_g = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    frame_g_prev = cv2.cvtColor(frame_prev, cv2.COLOR_BGR2GRAY)
-
-    valid_regions = list()
-
-    for (x, y, w, h) in valid_regions_prev:       
-        #I_prev = frame_g_prev[int(y+0.2*h):int(y+0.8*h), x:(x+w)]
+    :param frame: the new opencv image in which known regions must be matched to regions to be identified
+    :param valid_regions_prev: the regions identified in the previous iteration, each expressed by the tuple (x coordinate, y coordinate, width of region, height of region), to be matches to regions in the new frame
+    :param frame_prev: an opencv image of the previous frame from which regions were identified
+    :return: a list of regions that match valid_regions_prev in the new acquired frame
+    """
+    # conversion to grayscale saves computational power when matching regions
+    frame_g = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  # new frame in grayscale
+    frame_g_prev = cv2.cvtColor(frame_prev, cv2.COLOR_BGR2GRAY)  # previous frame in grayscale
+    valid_regions = list()  # list of valid regions for pedestrians identified in the new frame by template matching
+    for (x, y, w, h) in valid_regions_prev:  # match each region identified previously
         I_prev = frame_g_prev[int(y):int(y+h), x:(x+w)]
+        """
+        Reference start:
+        https://docs.opencv.org/3.4/d4/dc6/tutorial_py_template_matching.html
+        Accessed June 1, 2021
+        """
         res = cv2.matchTemplate(frame_g, I_prev, cv2.TM_CCORR_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+        """
+        Reference end
+        """
         ii_max = max_loc[0]
         jj_max = max_loc[1]
         valid_regions.append((ii_max, jj_max, w, h))
@@ -64,6 +88,12 @@ def track_pedestrians(frame, valid_regions_prev, frame_prev):
 
 
 def callback(data):
+    """
+    Check for pedestrians in the image from the car front camera, alternating detection and tracking by template matching
+    Publish binary status, whether pedestrians are present in front of the car or not
+
+    :param data: sensor_msgs/Image message containing an image from the car front camera
+    """
     global prev_image, prev_valid_regions, iterations
     try:
         cv_image = bridge.imgmsg_to_cv2(data, "bgr8")
@@ -86,6 +116,11 @@ def callback(data):
     iterations += 1
     if iterations == track_to_detect or len(valid_regions) == 0:
         iterations = 0
+    """
+    Reference start:
+    https://www.geeksforgeeks.org/pedestrian-detection-using-opencv-python/#:~:text=However%2C%20OpenCV%20has%20a%20built,in%20images%20and%20video%20streams.&text=This%20algorithm%20checks%20directly%20surrounding%20pixels%20of%20every%20single%20pixel
+    Accessed June 1, 2021
+    """ 
     for (x, y, w, h) in valid_regions:   
         cv_image = cv2.rectangle(cv_image, (x, y), 
                     (x + w, y + h), 
@@ -94,15 +129,18 @@ def callback(data):
         cv_image = cv2.rectangle(cv_image, (x, y), 
                     (x + w, y + h), 
                     (255, 0, 0), 2)
+    """
+    Reference end
+    """
     try:
         image_pub.publish(bridge.cv2_to_imgmsg(cv_image, "bgr8"))  # convert to ros image and publish
         prev_valid_regions = valid_regions
     except CvBridgeError as e:
         print(e)
     msg = Byte()
-    if len(valid_regions) > 0:
+    if len(valid_regions) > 0:  # if there is at least one pedestrian, then not clear
         msg.data = 1
-    else:
+    else:  # no pedestrians were detected
         msg.data = 0
     pub.publish(msg)
 
@@ -113,14 +151,19 @@ if __name__=="__main__":
     pub = rospy.Publisher("/is_clear/front_camera/all",Byte,queue_size=1)
     bridge = CvBridge()  # used to convert ROS images to opencv images and vice versa
     image_sub = rospy.Subscriber("/prius/front_camera/image_raw",Image,callback)
-
     scale_search = rospy.get_param("/obstacles_cv/scale_search", 1.05)
     track_to_detect = rospy.get_param("/obstacles_cv/track_to_detect", 35)
-
+    """
+    Reference start:
+    https://www.geeksforgeeks.org/pedestrian-detection-using-opencv-python/#:~:text=However%2C%20OpenCV%20has%20a%20built,in%20images%20and%20video%20streams.&text=This%20algorithm%20checks%20directly%20surrounding%20pixels%20of%20every%20single%20pixel
+    Accessed June 1, 2021
+    """ 
     hog = cv2.HOGDescriptor()
-    hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())    
+    hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())  # hog model for pedestrian detection  
+    """
+    Reference end
+    """
     prev_image = None  # stores previous frame
     prev_valid_regions = None  # stores valid pedestrian regions found in previous frame
     iterations = 0  # counter to switch between detection and tracking
-
     rospy.spin()
