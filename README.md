@@ -1,6 +1,6 @@
-# Lane following and obstace-avoiding autonomous vehicle
+# Self driving car simulation
 
-This repo contains code to drive a Toyota Prius autonomously given the lanes detected in the image from the car's front camera.
+This repo contains code to drive a Toyota Prius autonomously using the lanes and stop markers detected in the image from the car's front camera, stopping if obstacles are detected, and navigating to a user-set goal.
 
 ## Setup
 
