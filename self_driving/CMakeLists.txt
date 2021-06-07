@@ -9,6 +9,8 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
    FILES
    enable_driving.srv
+   destination.srv
+   destination_landmark.srv
 )
 
 ## Generate added messages and services with any dependencies listed here

@@ -211,10 +211,10 @@ def determine_line_type(img, ln, trapz_type, color_low_1, color_high_1, color_th
     elif trapz_type == 2:
         # for horizontal stop lines
         trapz = np.array([[[
-            (pts[0]+200, max(pts[1]-lane_rect,0)),
-            (pts[2]-200, max(pts[1]-lane_rect,0)),
-            (pts[2]-200, min(pts[3]+lane_rect,height)),
-            (pts[0]+200, min(pts[3]+lane_rect,height)),]]], np.int32)
+            (pts[0]+170, max(pts[1]-lane_rect,0)),
+            (pts[2]-170, max(pts[1]-lane_rect,0)),
+            (pts[2]-170, min(pts[3]+lane_rect,height)),
+            (pts[0]+170, min(pts[3]+lane_rect,height)),]]], np.int32)
 
     cv2.fillPoly(mask, trapz, [255,255,255])
     masked_image = cv2.bitwise_and(img, mask)  # get region of interest around line

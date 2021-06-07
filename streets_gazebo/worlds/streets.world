@@ -188,17 +188,81 @@
       </script>
     </actor>
 
-    <include>
-        <uri>model://house_1</uri>
-        <pose>22 29 0 0 0 0 </pose>
-    </include>
+    <actor name="actor_5">
+      <skin>
+        <filename>walk.dae</filename>
+      </skin>
+      <animation name="walking">
+        <filename>walk.dae</filename>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <trajectory id="0" type="walking">
+          <waypoint>
+            <time>0</time>
+            <pose>-12 -26 0 0 0 1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>11</time>
+            <pose>-12 -10 0 0 0 1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>12</time>
+            <pose>-12 -10 0 0 0 -1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>23</time>
+            <pose>-12 -26 0 0 0 -1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>24</time>
+            <pose>-12 -26 0 0 0 1.57</pose>
+          </waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
+    <actor name="actor_6">
+      <skin>
+        <filename>walk.dae</filename>
+      </skin>
+      <animation name="walking">
+        <filename>walk.dae</filename>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <trajectory id="0" type="walking">
+          <waypoint>
+            <time>0</time>
+            <pose>-12 26 0 0 0 -1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>11</time>
+            <pose>-12 10 0 0 0 -1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>12</time>
+            <pose>-12 10 0 0 0 1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>23</time>
+            <pose>-12 26 0 0 0 1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>24</time>
+            <pose>-12 26 0 0 0 -1.57</pose>
+          </waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
     <include>
         <uri>model://house_2</uri>
-        <pose>33 14 0 0 0 1.5709</pose>
+        <pose>33 9 0 0 0 1.5709</pose>
     </include>
     <include>
         <uri>model://school</uri>
-        <pose>-40 0 0 0 0 1.5709</pose>
+        <pose>-40 -9 0 0 0 1.5709</pose>
     </include>
     <!--include>
         <uri>model://fountain</uri>
@@ -206,7 +270,16 @@
     </include-->
     <include>
         <uri>model://law_office</uri>
-        <pose>3 -27 0 0 0 3.14159</pose>
+        <pose>12 -27 0 0 0 3.14159</pose>
+    </include>
+
+    <include>
+        <uri>model://suv</uri>
+        <pose>6 9 0 0 0 1.5709</pose>
+    </include>
+    <include>
+        <uri>model://construction_cone</uri>
+        <pose>-12 -4.5 0 0 0 0</pose>
     </include>
     
     <!--
@@ -470,6 +543,68 @@
       <uri>model://road_4</uri>
       <name>r43</name>
       <pose>18 -12 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://road_4</uri>
+      <name>r44</name>
+      <pose>6 6 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://road_4</uri>
+      <name>r45</name>
+      <pose>18 6 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://road_4</uri>
+      <name>r46</name>
+      <pose>6 12 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://road_4</uri>
+      <name>r47</name>
+      <pose>18 12 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://road_4</uri>
+      <name>r48</name>
+      <pose>-6 -6 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://road_4</uri>
+      <name>r49</name>
+      <pose>-18 -6 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://road_4</uri>
+      <name>r50</name>
+      <pose>-6 -12 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://road_4</uri>
+      <name>r51</name>
+      <pose>-18 -12 0 0 0 0</pose>
+    </include>
+    
+    <include>
+      <uri>model://road_4</uri>
+      <name>r52</name>
+      <pose>-6 6 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://road_4</uri>
+      <name>r53</name>
+      <pose>-18 6 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://road_4</uri>
+      <name>r54</name>
+      <pose>-6 12 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://road_4</uri>
+      <name>r55</name>
+      <pose>-18 12 0 0 0 0</pose>
     </include>
 </world>
 </sdf>

@@ -20,7 +20,9 @@ SUBSCRIBES:
 
 
 SERVICES:
-    enable_driving (self_driving/enable_driving): 0 holds the car in brake, 1 drives autonomously
+    enable_driving (self_driving/enable_driving): 0 holds the car in brake, 1 drives autonomously with continuous right turns
+    destination (self_driving/destination): input x and y coordinates (in Gazebo world frame) of the destination to have the car drive there
+    destination_landmark (self_driving/destination_landmark): input code of the landmark towards which the car should drive (see documentation/comments)
 
 """
 
@@ -28,7 +30,7 @@ import rospy
 import numpy as np
 from prius_msgs.msg import Control
 from nav_msgs.msg import Odometry
-from self_driving.srv import enable_driving
+from self_driving.srv import enable_driving, destination, destination_landmark
 from std_msgs.msg import Int32MultiArray, Byte
 
 
@@ -43,10 +45,6 @@ def navigation(data):
         y_dst_prev = y_prev - y_goal
         x_dot = x - x_prev
         y_dot = y - y_prev
-        # if x coordinate matches that of the goal, y distance is decreasing ##and car is moving in the y direction
-        #cond1 = -margin < x_dst < margin and y_dst_prev - y_dst > eps #and abs(x_dot) < eps and abs(y_dot) > eps
-        # if y coordinate matches that of the goal, x distance is decreasing ##and car is moving in the x direction
-        #cond2 = -margin < y_dst < margin and x_dst_prev - x_dst > eps #and abs(y_dot) < eps and abs(x_dot) > eps
         
         if not in_intersection:
             cond1 = abs(y_dst_prev) - abs(y_dst) > eps  # getting closer in x
@@ -86,6 +84,38 @@ def service_callback(req):
     # change global variable driving_ctrl to enable/disable self driving
     global driving_ctrl
     driving_ctrl = req.ctrl
+    return []
+
+def service_destination_callback(req):
+    global driving_ctrl, is_arrived, x_goal, y_goal
+    driving_ctrl = 1
+    is_arrived = 0
+    x_goal = req.x
+    y_goal = req.y
+    return []
+
+def service_landmark_callback(req):
+    global driving_ctrl, is_arrived, x_goal, y_goal
+    driving_ctrl = 1
+    is_arrived = 0
+    if req.landmark == 1:  # house_2
+        x_goal = 24
+        y_goal = 9
+    elif req.landmark == 2:  # law office
+        x_goal = 12
+        y_goal = -18
+    elif req.landmark == 3:  # construction cone
+        x_goal = -12
+        y_goal = 0
+    elif req.landmark == 4:  # school
+        x_goal = -24
+        y_goal = -9
+    elif req.landmark == 5:  # suv
+        x_goal = 0
+        y_goal = 9
+    else:  # invalid landmark code
+        driving_ctrl = 0
+        is_arrived = 1
     return []
 
 def callback(data):
@@ -141,7 +171,7 @@ def callback(data):
         if not found_stop:  # if a stop was not found, then zero/reduce all accumulators or prepare to stop
             if (stop_acc >= stop_acc_min or after_stop_count > 0):  # if a stop marker was seen previously for >= the minimum number of times or the car is waiting after having started braking
                 # if stop marker was seen for many consecutive times then car was going slow, wait longer to stop to stop with the wheels at the marker
-                if delay_current > stop_acc - stop_acc_min:
+                if delay_current > min(stop_acc - stop_acc_min, 20)-2:
                     is_braking = True  # car is in braking mode
                     throttle = 0
                     brake = 1
@@ -216,6 +246,8 @@ if __name__=="__main__":
     sub_obstacles_cv = rospy.Subscriber("/is_clear/front_camera/all",Byte,is_clear_camera_callback)
     sub = rospy.Subscriber("/base_pose_ground_truth",Odometry,navigation)
     s = rospy.Service('enable_driving', enable_driving, service_callback)
+    s_destination = rospy.Service('destination', destination, service_destination_callback)
+    s_landmark = rospy.Service('destination_landmark', destination_landmark, service_landmark_callback)
 
     # throttle = rospy.get_param("/steering/throttle", 0.02)
     k = rospy.get_param("/steering/k", 0.01)
@@ -245,11 +277,11 @@ if __name__=="__main__":
     x_prev = 0
     y_prev = 0
     # TODO set goal from terminal
-    x_goal = 12
-    y_goal = 18
+    x_goal = None
+    y_goal = None
     margin = 7
     eps = 0.002
-    turn_right = False
+    turn_right = True
     is_arrived = False
     correct_intersection_trigger = False
     is_braking = False
