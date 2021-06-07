@@ -46,7 +46,7 @@ def make_points(image, line):
     :param line: a (slope, intercept) tuple defining a line on the image
     :return: a list in a list containing x and y coordinates of end point 1, x and y coordinates of end point 2
     """
-   slope, intercept = line
+    slope, intercept = line
     if abs(slope) > 0.2:  # lines that are more vertical fix y coords and find x coords
         y1 = int(image.shape[0])  # bottom of the image
         y2 = int(y1*3/5)         # slightly lower than the middle
